@@ -714,38 +714,47 @@ export default function App() {
 
           if (session) {
             const habitsToImport = parsed.habits as Habit[];
-            for (const h of habitsToImport) {
-              await supabase
+            const habitsData = habitsToImport.map(h => ({
+              id: h.id,
+              user_id: userId,
+              name: h.name,
+              category: h.category,
+              color: h.color,
+              frequency_type: h.frequency?.type || 'daily',
+              frequency_days_of_week: h.frequency?.daysOfWeek || null,
+              frequency_interval_days: h.frequency?.intervalDays || null,
+              times_per_day: h.timesPerDay,
+              slot_names: h.slotNames || null,
+              reminder_time: h.reminderTime || null,
+              created_at: h.createdAt
+            }));
+
+            if (habitsData.length > 0) {
+              const { error: habitsErr } = await supabase
                 .from('habits')
-                .upsert({
-                  id: h.id,
-                  user_id: userId,
-                  name: h.name,
-                  category: h.category,
-                  color: h.color,
-                  frequency_type: h.frequency.type,
-                  frequency_days_of_week: h.frequency.daysOfWeek || null,
-                  frequency_interval_days: h.frequency.intervalDays || null,
-                  times_per_day: h.timesPerDay,
-                  slot_names: h.slotNames || null,
-                  reminder_time: h.reminderTime || null,
-                  created_at: h.createdAt
-                });
+                .upsert(habitsData);
+              if (habitsErr) throw habitsErr;
             }
 
             const completionsToImport = parsed.completions as CompletionLog;
+            const completionsData: any[] = [];
             for (const [habitId, logObj] of Object.entries(completionsToImport)) {
               for (const [dateStr, compObj] of Object.entries(logObj)) {
-                await supabase
-                  .from('completions')
-                  .upsert({
-                    user_id: userId,
-                    habit_id: habitId,
-                    date: dateStr,
-                    count: compObj.count,
-                    slots: compObj.slots || null
-                  }, { onConflict: 'habit_id,date' });
+                completionsData.push({
+                  user_id: userId,
+                  habit_id: habitId,
+                  date: dateStr,
+                  count: compObj.count,
+                  slots: compObj.slots || null
+                });
               }
+            }
+
+            if (completionsData.length > 0) {
+              const { error: completionsErr } = await supabase
+                .from('completions')
+                .upsert(completionsData, { onConflict: 'habit_id,date' });
+              if (completionsErr) throw completionsErr;
             }
 
             setSession({ ...session });
@@ -758,8 +767,8 @@ export default function App() {
         } else {
           alert("Invalid backup file structure.");
         }
-      } catch (err) {
-        alert("Failed to parse backup JSON file.");
+      } catch (err: any) {
+        alert(`Failed to import backup: ${err.message}`);
       }
     };
     fileReader.readAsText(e.target.files[0]);
