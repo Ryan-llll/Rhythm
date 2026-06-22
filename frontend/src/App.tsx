@@ -5,12 +5,11 @@ import { HabitDetails } from './components/HabitDetails';
 import { HabitForm } from './components/HabitForm';
 import { 
   Plus, Search, Download, Upload, Calendar, 
-  CheckSquare, ChevronLeft, ChevronRight, Trash2, LogOut, Flame, LogIn, Sun, Moon
+  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut, Flame, LogIn, Sun, Moon
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { LandingPage } from './components/LandingPage';
 import type { Session } from '@supabase/supabase-js';
-import { OxygenLogo } from './components/OxygenLogo';
 
 // Helper to format date safely as YYYY-MM-DD
 const formatDateStr = (date: Date): string => {
@@ -806,7 +805,7 @@ export default function App() {
   if (loadingSession) {
     return (
       <div className="app-loading-screen">
-        <OxygenLogo size={36} className="logo-sparkle spinner" />
+        <Sparkles size={36} className="logo-sparkle spinner" />
         <span className="font-mono" style={{ marginTop: '16px', color: 'var(--text-secondary)' }}>
           Loading Rhythm...
         </span>
@@ -854,7 +853,7 @@ export default function App() {
         <div className="sidebar-header">
           <div className="logo-section-row">
             <div className="logo-section">
-              <OxygenLogo size={20} className="logo-sparkle" />
+              <Sparkles size={20} className="logo-sparkle" />
               <h2 className="logo-title font-mono">Rhythm</h2>
             </div>
             <button 

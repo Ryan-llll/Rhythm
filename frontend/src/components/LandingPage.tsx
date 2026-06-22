@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, Loader, Download, ArrowRight } from 'lucide-react';
-import { OxygenLogo } from './OxygenLogo';
+import { Sparkles, Mail, Lock, Loader, Download, ArrowRight } from 'lucide-react';
 
 interface LandingPageProps {
   onContinueOffline: () => void;
@@ -93,7 +92,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Top Navbar */}
       <header className="landing-navbar fade-in">
         <div className="landing-logo font-mono">
-          <OxygenLogo size={24} className="logo-sparkle animate-pulse" />
+          <Sparkles size={24} className="logo-sparkle animate-pulse" />
           <span>Rhythm</span>
         </div>
         <button
