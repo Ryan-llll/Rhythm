@@ -1,13 +1,13 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1280,
+    height: 820,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset', // Modern native Mac look with embedded traffic lights
+    titleBarStyle: 'hiddenInset',
     backgroundColor: '#09090b',
     webPreferences: {
       nodeIntegration: false,
@@ -16,12 +16,12 @@ function createWindow() {
     },
   });
 
-  // Load the built frontend index.html
-  win.loadFile(path.join(__dirname, '../frontend/dist/index.html'));
+  // Load the live production web app — always up to date, no path issues
+  win.loadURL('https://rythm-eight.vercel.app');
 
-  // Open external links in default browser instead of inside electron window
+  // Open external links in default browser
   win.webContents.setWindowOpenHandler(({ url }) => {
-    require('electron').shell.openExternal(url);
+    shell.openExternal(url);
     return { action: 'deny' };
   });
 }

@@ -18,21 +18,7 @@
     "productName": "Rhythm",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": [
-        "dir",
-        "dmg"
-      ]
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
+      "target": ["dir"]
     },
     "directories": {
       "output": "dist"
@@ -40,8 +26,7 @@
     "files": [
       "main.js",
       "preload.js",
-      "package.json",
-      "../frontend/dist/**/*"
+      "package.json"
     ]
   },
   "allowScripts": {
