@@ -123,6 +123,7 @@ export default function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importJsonText, setImportJsonText] = useState('');
+  const [showAuthForm, setShowAuthForm] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [slotCheckoffTarget, setSlotCheckoffTarget] = useState<{ habit: Habit; dateStr: string } | null>(null);
 
@@ -844,10 +845,107 @@ export default function App() {
 
   // Render Auth Path
   if (!session && !useOfflineMode) {
+    if (!showAuthForm) {
+      return (
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+          <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+          <View style={styles.welcomeContainer}>
+            {/* Top theme toggle */}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 10 }}>
+              <TouchableOpacity
+                style={styles.themeBtn}
+                onPress={() => {
+                  const next = theme === 'dark' ? 'light' : 'dark';
+                  setTheme(next);
+                  AsyncStorage.setItem('rhythm_theme', next);
+                }}
+              >
+                {theme === 'dark' ? <Sun size={16} color={colors.accent} /> : <Moon size={16} color={colors.accent} />}
+              </TouchableOpacity>
+            </View>
+
+            {/* Logo */}
+            <View style={{ alignItems: 'center', marginTop: 20, gap: 12 }}>
+              <Sparkles size={64} color={colors.accent} />
+              <Text style={[styles.logoText, { fontSize: 32, color: colors.textPrimary }]}>Rhythm</Text>
+              <Text style={{ fontSize: 11, fontWeight: 'bold', color: colors.accent, letterSpacing: 2, marginTop: -4 }}>
+                DEVELOPER HABIT TRACKER
+              </Text>
+            </View>
+
+            {/* Tagline / Subtitle */}
+            <View style={{ alignItems: 'center', marginTop: 30, paddingHorizontal: 20 }}>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center', lineHeight: 30 }}>
+                Build Habits Like Code.
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginTop: 10, lineHeight: 20 }}>
+                Track your routine using developer-centric heatmaps, streaks, and subtasks.
+              </Text>
+            </View>
+
+            {/* Mock Heatmap Grid Decoration */}
+            <View style={{ alignItems: 'center', marginVertical: 32 }}>
+              <View style={{ gap: 4 }}>
+                {Array.from({ length: 4 }).map((_, rIdx) => (
+                  <View key={rIdx} style={{ flexDirection: 'row', gap: 4 }}>
+                    {Array.from({ length: 9 }).map((_, cIdx) => {
+                      const intensities = [
+                        [0, 1, 0, 3, 0, 2, 4, 0, 1],
+                        [2, 0, 4, 1, 0, 0, 2, 1, 0],
+                        [0, 3, 1, 0, 2, 4, 0, 3, 2],
+                        [1, 2, 0, 0, 3, 1, 0, 4, 0]
+                      ];
+                      const val = intensities[rIdx][cIdx];
+                      const opacity = val === 0 ? 0.1 : val * 0.22;
+                      return (
+                        <View
+                          key={cIdx}
+                          style={{
+                            width: 14,
+                            height: 14,
+                            borderRadius: 3,
+                            backgroundColor: colors.accent,
+                            opacity: opacity,
+                          }}
+                        />
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ paddingHorizontal: 24, gap: 14, marginTop: 'auto', marginBottom: 24 }}>
+              <TouchableOpacity style={styles.authBtn} onPress={() => setShowAuthForm(true)}>
+                <Text style={styles.authBtnText}>Get Started (Cloud Sync)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.offlineBtn} onPress={handleOfflineModeSelect}>
+                <Text style={[styles.offlineBtnText, { color: colors.textPrimary }]}>Continue Offline (Guest Mode)</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center' }]}>
         <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
         <View style={styles.authContainer}>
+          <TouchableOpacity 
+            style={{ 
+              alignSelf: 'flex-start', 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              marginBottom: 16, 
+              gap: 4 
+            }} 
+            onPress={() => setShowAuthForm(false)}
+          >
+            <ChevronLeft size={16} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: 'bold' }}>Back</Text>
+          </TouchableOpacity>
           <View style={styles.authCard}>
             <View style={styles.logoContainer}>
               <Sparkles size={24} color={colors.accent} />
@@ -2319,5 +2417,10 @@ const getStyles = (colors: any, theme: string) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  welcomeContainer: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'space-between',
   }
 });
