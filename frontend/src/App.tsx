@@ -5,11 +5,11 @@ import { HabitDetails } from './components/HabitDetails';
 import { HabitForm } from './components/HabitForm';
 import { 
   Plus, Search, Download, Upload, Calendar, 
-  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2 
+  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut 
 } from 'lucide-react';
-
-// Default preloaded habits (starts empty as requested)
-const DEFAULT_HABITS: Habit[] = [];
+import { supabase } from './lib/supabase';
+import { Auth } from './components/Auth';
+import type { Session } from '@supabase/supabase-js';
 
 // Helper to format date safely as YYYY-MM-DD
 const formatDateStr = (date: Date): string => {
@@ -20,16 +20,13 @@ const formatDateStr = (date: Date): string => {
 };
 
 export default function App() {
-  // 1. Initial State Loading
-  const [habits, setHabits] = useState<Habit[]>(() => {
-    const local = localStorage.getItem('rhythm_habits');
-    return local ? JSON.parse(local) : DEFAULT_HABITS;
-  });
+  // 1. Session and Auth State
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
 
-  const [completions, setCompletions] = useState<CompletionLog>(() => {
-    const local = localStorage.getItem('rhythm_completions');
-    return local ? JSON.parse(local) : {};
-  });
+  // 2. Habits and Completions State
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [completions, setCompletions] = useState<CompletionLog>({});
 
   // Filters & Offsets
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
@@ -41,16 +38,80 @@ export default function App() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [editHabit, setEditHabit] = useState<Habit | undefined>(undefined);
 
-  // 2. Sync States to LocalStorage
+  // 3. Listen to auth state changes on mount
   useEffect(() => {
-    localStorage.setItem('rhythm_habits', JSON.stringify(habits));
-  }, [habits]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingSession(false);
+    });
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 4. Fetch data from Supabase when session changes
   useEffect(() => {
-    localStorage.setItem('rhythm_completions', JSON.stringify(completions));
-  }, [completions]);
+    if (!session) {
+      setHabits([]);
+      setCompletions({});
+      return;
+    }
+    
+    const fetchUserData = async () => {
+      try {
+        // Fetch habits
+        const { data: dbHabits, error: habitsErr } = await supabase
+          .from('habits')
+          .select('*')
+          .order('created_at', { ascending: true });
+          
+        if (habitsErr) throw habitsErr;
+        
+        const mappedHabits: Habit[] = (dbHabits || []).map(h => ({
+          id: h.id,
+          name: h.name,
+          category: h.category as Category,
+          color: h.color,
+          frequency: {
+            type: h.frequency_type as any,
+            daysOfWeek: h.frequency_days_of_week || undefined,
+            intervalDays: h.frequency_interval_days || undefined,
+          },
+          timesPerDay: h.times_per_day,
+          slotNames: h.slot_names || undefined,
+          reminderTime: h.reminder_time || undefined,
+          createdAt: h.created_at.split('T')[0],
+        }));
+        setHabits(mappedHabits);
 
-  // 3. Generate Week Dates based on Offset
+        // Fetch completions
+        const { data: dbCompletions, error: completionsErr } = await supabase
+          .from('completions')
+          .select('*');
+          
+        if (completionsErr) throw completionsErr;
+
+        const log: CompletionLog = {};
+        (dbCompletions || []).forEach(c => {
+          if (!log[c.habit_id]) log[c.habit_id] = {};
+          log[c.habit_id][c.date] = {
+            count: c.count,
+            slots: c.slots || undefined
+          };
+        });
+        setCompletions(log);
+      } catch (error) {
+        console.error('Error fetching user data from Supabase:', error);
+      }
+    };
+
+    fetchUserData();
+  }, [session]);
+
+  // 5. Generate Week Dates based on Offset
   const getWeekDates = (offset: number): Date[] => {
     const today = new Date();
     const day = today.getDay(); // 0 is Sun, 1 is Mon, etc.
@@ -70,7 +131,7 @@ export default function App() {
 
   const weekDates = getWeekDates(weekOffset);
 
-  // 4. Calculations for Sidebar Statistics
+  // 6. Calculations for Sidebar Statistics
   const calculateStats = () => {
     let totalChecks = 0;
     
@@ -205,112 +266,255 @@ export default function App() {
 
   const { totalChecks, weeklyRate, longestStreak } = calculateStats();
 
-  // 5. Completion Toggle Handlers
-  const handleToggleCompletion = (habitId: string, dateStr: string, slotIndex?: number) => {
+  // 7. Completion Toggle Handlers (Synced to Supabase)
+  const handleToggleCompletion = async (habitId: string, dateStr: string, slotIndex?: number) => {
+    if (!session) return;
+    const userId = session.user.id;
+
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return;
 
-    setCompletions((prev) => {
-      const habitComps = { ...(prev[habitId] || {}) };
-      const current = habitComps[dateStr] || { count: 0 };
+    const habitComps = completions[habitId] || {};
+    const current = habitComps[dateStr] || { count: 0 };
 
-      let updated: HabitCompletion;
+    let updated: HabitCompletion;
 
-      if (habit.timesPerDay > 1) {
-        // Multi-slot
-        const slots = [...(current.slots || Array(habit.timesPerDay).fill(false))];
-        if (slotIndex !== undefined) {
-          slots[slotIndex] = !slots[slotIndex];
-        }
-        const count = slots.filter(s => s).length;
-        updated = { count, slots };
-      } else {
-        // Single slot toggle (0 or 1)
-        const count = current.count > 0 ? 0 : 1;
-        updated = { count };
+    if (habit.timesPerDay > 1) {
+      // Multi-slot
+      const slots = [...(current.slots || Array(habit.timesPerDay).fill(false))];
+      if (slotIndex !== undefined) {
+        slots[slotIndex] = !slots[slotIndex];
       }
-
-      habitComps[dateStr] = updated;
-      
-      const newComps = { ...prev };
-      newComps[habitId] = habitComps;
-      return newComps;
-    });
-  };
-
-  const handleIncrementCompletion = (habitId: string, dateStr: string) => {
-    setCompletions((prev) => {
-      const habitComps = { ...(prev[habitId] || {}) };
-      const current = habitComps[dateStr] || { count: 0 };
-      
-      habitComps[dateStr] = {
-        count: current.count + 1,
-      };
-
-      const newComps = { ...prev };
-      newComps[habitId] = habitComps;
-      return newComps;
-    });
-  };
-
-  const handleDecrementCompletion = (habitId: string, dateStr: string) => {
-    setCompletions((prev) => {
-      const habitComps = { ...(prev[habitId] || {}) };
-      const current = habitComps[dateStr] || { count: 0 };
-      
-      if (current.count <= 0) return prev;
-
-      habitComps[dateStr] = {
-        count: Math.max(0, current.count - 1),
-      };
-
-      const newComps = { ...prev };
-      newComps[habitId] = habitComps;
-      return newComps;
-    });
-  };
-
-  // 6. Habit Add / Edit / Delete Handlers
-  const handleSaveHabit = (habitData: Omit<Habit, 'id' | 'createdAt'> & { id?: string }) => {
-    if (habitData.id) {
-      // Edit
-      setHabits((prev) =>
-        prev.map((h) =>
-          h.id === habitData.id
-            ? { ...h, ...habitData, slotNames: habitData.slotNames } as Habit
-            : h
-        )
-      );
-      // Update details modal reference if open
-      if (activeDetailsHabit && activeDetailsHabit.id === habitData.id) {
-        setActiveDetailsHabit({
-          ...activeDetailsHabit,
-          ...habitData,
-        } as Habit);
-      }
+      const count = slots.filter(s => s).length;
+      updated = { count, slots };
     } else {
-      // Add
-      const newHabit: Habit = {
-        ...habitData,
-        id: Math.random().toString(36).substr(2, 9),
-        createdAt: formatDateStr(new Date()),
-      } as Habit;
-      setHabits((prev) => [...prev, newHabit]);
+      // Single slot toggle (0 or 1)
+      const count = current.count > 0 ? 0 : 1;
+      updated = { count };
     }
-    setShowFormModal(false);
-    setEditHabit(undefined);
-  };
 
-  const handleDeleteHabit = (habitId: string) => {
-    setHabits((prev) => prev.filter((h) => h.id !== habitId));
+    // Sync to Supabase via upsert
+    const { error } = await supabase
+      .from('completions')
+      .upsert({
+        user_id: userId,
+        habit_id: habitId,
+        date: dateStr,
+        count: updated.count,
+        slots: updated.slots || null
+      }, { onConflict: 'habit_id,date' });
+
+    if (error) {
+      console.error('Error syncing toggle completion to Supabase:', error);
+      alert(`Sync failed: ${error.message}`);
+      return;
+    }
+
+    // Update locally
     setCompletions((prev) => {
-      const copy = { ...prev };
-      delete copy[habitId];
-      return copy;
+      const newComps = { ...prev };
+      newComps[habitId] = {
+        ...habitComps,
+        [dateStr]: updated
+      };
+      return newComps;
     });
   };
 
-  // 7. Backup Export & Import Utilities
+  const handleIncrementCompletion = async (habitId: string, dateStr: string) => {
+    if (!session) return;
+    const userId = session.user.id;
+
+    const habitComps = completions[habitId] || {};
+    const current = habitComps[dateStr] || { count: 0 };
+    const newCount = current.count + 1;
+
+    const { error } = await supabase
+      .from('completions')
+      .upsert({
+        user_id: userId,
+        habit_id: habitId,
+        date: dateStr,
+        count: newCount,
+        slots: null
+      }, { onConflict: 'habit_id,date' });
+
+    if (error) {
+      console.error('Error syncing increment to Supabase:', error);
+      return;
+    }
+
+    setCompletions((prev) => {
+      const newComps = { ...prev };
+      newComps[habitId] = {
+        ...habitComps,
+        [dateStr]: { count: newCount }
+      };
+      return newComps;
+    });
+  };
+
+  const handleDecrementCompletion = async (habitId: string, dateStr: string) => {
+    if (!session) return;
+    const userId = session.user.id;
+
+    const habitComps = completions[habitId] || {};
+    const current = habitComps[dateStr] || { count: 0 };
+    if (current.count <= 0) return;
+    const newCount = Math.max(0, current.count - 1);
+
+    const { error } = await supabase
+      .from('completions')
+      .upsert({
+        user_id: userId,
+        habit_id: habitId,
+        date: dateStr,
+        count: newCount,
+        slots: null
+      }, { onConflict: 'habit_id,date' });
+
+    if (error) {
+      console.error('Error syncing decrement to Supabase:', error);
+      return;
+    }
+
+    setCompletions((prev) => {
+      const newComps = { ...prev };
+      newComps[habitId] = {
+        ...habitComps,
+        [dateStr]: { count: newCount }
+      };
+      return newComps;
+    });
+  };
+
+  // 8. Habit Add / Edit / Delete Handlers (Synced to Supabase)
+  const handleSaveHabit = async (habitData: Omit<Habit, 'id' | 'createdAt'> & { id?: string }) => {
+    if (!session) return;
+    const userId = session.user.id;
+
+    try {
+      if (habitData.id) {
+        // Edit in Supabase
+        const { error } = await supabase
+          .from('habits')
+          .update({
+            name: habitData.name,
+            category: habitData.category,
+            color: habitData.color,
+            frequency_type: habitData.frequency.type,
+            frequency_days_of_week: habitData.frequency.daysOfWeek || null,
+            frequency_interval_days: habitData.frequency.intervalDays || null,
+            times_per_day: habitData.timesPerDay,
+            slot_names: habitData.slotNames || null,
+            reminder_time: habitData.reminderTime || null
+          })
+          .eq('id', habitData.id);
+
+        if (error) throw error;
+
+        // Update locally
+        setHabits((prev) =>
+          prev.map((h) =>
+            h.id === habitData.id
+              ? { ...h, ...habitData, slotNames: habitData.slotNames } as Habit
+              : h
+          )
+        );
+        if (activeDetailsHabit && activeDetailsHabit.id === habitData.id) {
+          setActiveDetailsHabit({
+            ...activeDetailsHabit,
+            ...habitData,
+          } as Habit);
+        }
+      } else {
+        // Create in Supabase
+        const { data, error } = await supabase
+          .from('habits')
+          .insert({
+            user_id: userId,
+            name: habitData.name,
+            category: habitData.category,
+            color: habitData.color,
+            frequency_type: habitData.frequency.type,
+            frequency_days_of_week: habitData.frequency.daysOfWeek || null,
+            frequency_interval_days: habitData.frequency.intervalDays || null,
+            times_per_day: habitData.timesPerDay,
+            slot_names: habitData.slotNames || null,
+            reminder_time: habitData.reminderTime || null
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const newHabit: Habit = {
+          id: data.id,
+          name: data.name,
+          category: data.category as Category,
+          color: data.color,
+          frequency: {
+            type: data.frequency_type as any,
+            daysOfWeek: data.frequency_days_of_week || undefined,
+            intervalDays: data.frequency_interval_days || undefined,
+          },
+          timesPerDay: data.times_per_day,
+          slotNames: data.slot_names || undefined,
+          reminderTime: data.reminder_time || undefined,
+          createdAt: data.created_at.split('T')[0],
+        };
+
+        setHabits((prev) => [...prev, newHabit]);
+      }
+      setShowFormModal(false);
+      setEditHabit(undefined);
+    } catch (err: any) {
+      alert(`Failed to save habit: ${err.message}`);
+    }
+  };
+
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('habits')
+        .delete()
+        .eq('id', habitId);
+
+      if (error) throw error;
+
+      setHabits((prev) => prev.filter((h) => h.id !== habitId));
+      setCompletions((prev) => {
+        const copy = { ...prev };
+        delete copy[habitId];
+        return copy;
+      });
+    } catch (err: any) {
+      alert(`Failed to delete habit: ${err.message}`);
+    }
+  };
+
+  // 9. Reset / Clear All Data
+  const handleClearAllData = async () => {
+    if (!session) return;
+    if (window.confirm("Are you sure you want to delete all habits and completions from the cloud? This cannot be undone.")) {
+      try {
+        const { error } = await supabase
+          .from('habits')
+          .delete()
+          .eq('user_id', session.user.id);
+
+        if (error) throw error;
+
+        setHabits([]);
+        setCompletions({});
+        alert("All cloud data deleted successfully!");
+      } catch (err: any) {
+        alert(`Failed to clear data: ${err.message}`);
+      }
+    }
+  };
+
+  // 10. Backup JSON Export / Import
   const handleExportBackup = () => {
     const jsonString = JSON.stringify({ habits, completions }, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
@@ -326,17 +530,59 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!session) return;
+    const userId = session.user.id;
     const fileReader = new FileReader();
     if (!e.target.files || e.target.files.length === 0) return;
     
-    fileReader.onload = (event) => {
+    fileReader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (parsed.habits && parsed.completions) {
-          setHabits(parsed.habits);
-          setCompletions(parsed.completions);
-          alert("Backup imported successfully!");
+          // Confirm overwrite
+          if (!window.confirm("Importing a backup will merge and update your habits in the cloud. Do you want to proceed?")) return;
+
+          // 1. Upload Habits
+          const habitsToImport = parsed.habits as Habit[];
+          for (const h of habitsToImport) {
+            await supabase
+              .from('habits')
+              .upsert({
+                id: h.id,
+                user_id: userId,
+                name: h.name,
+                category: h.category,
+                color: h.color,
+                frequency_type: h.frequency.type,
+                frequency_days_of_week: h.frequency.daysOfWeek || null,
+                frequency_interval_days: h.frequency.intervalDays || null,
+                times_per_day: h.timesPerDay,
+                slot_names: h.slotNames || null,
+                reminder_time: h.reminderTime || null,
+                created_at: h.createdAt
+              });
+          }
+
+          // 2. Upload Completions
+          const completionsToImport = parsed.completions as CompletionLog;
+          for (const [habitId, logObj] of Object.entries(completionsToImport)) {
+            for (const [dateStr, compObj] of Object.entries(logObj)) {
+              await supabase
+                .from('completions')
+                .upsert({
+                  user_id: userId,
+                  habit_id: habitId,
+                  date: dateStr,
+                  count: compObj.count,
+                  slots: compObj.slots || null
+                }, { onConflict: 'habit_id,date' });
+            }
+          }
+
+          // Force refetch from cloud by resetting session reference
+          setSession({ ...session });
+          alert("Backup successfully synced to your cloud database!");
         } else {
           alert("Invalid backup file structure.");
         }
@@ -347,23 +593,18 @@ export default function App() {
     fileReader.readAsText(e.target.files[0]);
   };
 
-  const handleClearAllData = () => {
-    if (window.confirm("Are you sure you want to delete all habits and completions? This will reset the app.")) {
-      setHabits([]);
-      setCompletions({});
-      localStorage.removeItem('rhythm_habits');
-      localStorage.removeItem('rhythm_completions');
-    }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
   };
 
-  // 8. Filtered Habit List
+  // 11. Filtered Habit List
   const filteredHabits = habits.filter((habit) => {
     const matchesCategory = selectedCategory === 'All' || habit.category === selectedCategory;
     const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
-  // Dates Text Formatting
   const getWeekDatesHeaderString = () => {
     if (weekDates.length < 7) return '';
     const first = weekDates[0];
@@ -373,16 +614,62 @@ export default function App() {
     return `${first.toLocaleDateString('en-US', options)} - ${last.toLocaleDateString('en-US', options)}, ${last.getFullYear()}`;
   };
 
+  // 12. Show loading spinner during initial session check
+  if (loadingSession) {
+    return (
+      <div className="app-loading-screen">
+        <Sparkles size={36} className="logo-sparkle spinner" />
+        <span className="font-mono" style={{ marginTop: '16px', color: 'var(--text-secondary)' }}>
+          Loading Rhythm...
+        </span>
+        <style>{`
+          .app-loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+            background-color: #09090b;
+            color: #f4f4f5;
+          }
+          .spinner {
+            animation: spin 1.2s linear infinite;
+            color: #d8c3a5;
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // 13. Lock UI to Auth screen if no active session
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div className="app-container">
-      {/* Sidebar navigation and statistics */}
+      {/* Sidebar navigation, stats, and auth state */}
       <aside className="app-sidebar">
         <div className="sidebar-header">
           <div className="logo-section">
             <Sparkles size={20} className="logo-sparkle" />
             <h2 className="logo-title font-mono">Rhythm</h2>
           </div>
-          <span className="app-subtitle">Habit Tracker v1.0</span>
+          <span className="app-subtitle">Synced to Cloud</span>
+        </div>
+
+        {/* User Account / Sign Out Section */}
+        <div className="sidebar-section">
+          <div className="user-profile-box font-mono">
+            <span className="user-email-label" title={session.user.email}>
+              {session.user.email}
+            </span>
+          </div>
         </div>
 
         {/* Global Statistics Section */}
@@ -445,7 +732,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Backup / Export Actions */}
+        {/* Actions / Export & Sign Out */}
         <div className="sidebar-footer">
           <button className="sidebar-action-btn" onClick={handleExportBackup}>
             <Download size={14} />
@@ -465,7 +752,12 @@ export default function App() {
 
           <button className="sidebar-action-btn sidebar-clear-btn" onClick={handleClearAllData}>
             <Trash2 size={14} />
-            <span>Clear All Data</span>
+            <span>Clear Cloud Data</span>
+          </button>
+
+          <button className="sidebar-action-btn sidebar-signout-btn" onClick={handleSignOut}>
+            <LogOut size={14} />
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -589,8 +881,28 @@ export default function App() {
         />
       )}
 
-      {/* Embedded application style rules for the overall App grid structure */}
+      {/* Embedded application style rules */}
       <style>{`
+        /* User profile box styling */
+        .user-profile-box {
+          background-color: rgba(39, 39, 42, 0.3);
+          border: 1px solid var(--card-border);
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 0.72rem;
+          color: var(--text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .user-email-label {
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          overflow: hidden;
+          max-width: 100%;
+        }
+
         /* Sidebar styles */
         .app-sidebar {
           background-color: var(--card-bg);
@@ -767,6 +1079,10 @@ export default function App() {
         .sidebar-clear-btn:hover {
           border-color: var(--color-family) !important;
           color: var(--color-family) !important;
+        }
+        .sidebar-signout-btn:hover {
+          border-color: var(--color-language) !important;
+          color: var(--color-language) !important;
         }
 
         /* Main app layout area */
