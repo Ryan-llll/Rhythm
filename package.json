@@ -3,11 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "install:all": "npm install --prefix frontend && npm install --prefix mobile && npm install --prefix desktop",
+    "install:all": "npm install --prefix frontend",
     "dev": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix frontend",
-    "mobile:dev": "npm start --prefix mobile",
-    "desktop:dev": "npm start --prefix desktop",
-    "desktop:build": "npm run build --prefix desktop"
+    "build": "npm run build --prefix frontend"
   }
 }
