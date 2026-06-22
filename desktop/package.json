@@ -1,0 +1,50 @@
+{
+  "name": "rhythm-desktop",
+  "version": "1.0.0",
+  "description": "Desktop wrapper for Rhythm Habit Tracker",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "author": "Rayan Amlal",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.rhythm.app",
+    "productName": "Rhythm",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir",
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "../frontend/dist/**/*"
+    ]
+  },
+  "allowScripts": {
+    "electron@34.5.8": true
+  }
+}
