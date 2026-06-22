@@ -261,8 +261,8 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
   // Get color intensity for heatmap cell
   const getCellColor = (intensity: number) => {
     if (intensity === 0) return 'var(--card-border)';
-    const opacities = [0, 0.25, 0.5, 0.75, 1];
-    return `${habit.color}${Math.floor(opacities[intensity] * 255).toString(16).padStart(2, '0')}`;
+    const pct = [0, 25, 50, 75, 100][intensity];
+    return `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) ${pct}%, transparent)`;
   };
 
   const handleDeleteClick = () => {
@@ -301,7 +301,7 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
       <div className="modal-content habit-details-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="details-header-title">
-            <span className="habit-color-pill" style={{ backgroundColor: habit.color }}></span>
+            <span className="habit-color-pill" style={{ backgroundColor: `var(--color-${habit.category.toLowerCase()})` }}></span>
             <div>
               <h3>{habit.name}</h3>
               <span className={`badge badge-${habit.category.toLowerCase()}`} style={{ marginTop: '4px' }}>
@@ -318,8 +318,8 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
           {/* Streak & Stats Grid */}
           <div className="stats-row">
             <div className="stat-card">
-              <div className="stat-icon-wrapper" style={{ color: habit.color, backgroundColor: `${habit.color}15` }}>
-                <Flame size={20} fill={currentStreak > 0 ? habit.color : 'transparent'} />
+              <div className="stat-icon-wrapper" style={{ color: `var(--color-${habit.category.toLowerCase()})`, backgroundColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 8%, transparent)` }}>
+                <Flame size={20} fill={currentStreak > 0 ? `var(--color-${habit.category.toLowerCase()})` : 'transparent'} />
               </div>
               <div className="stat-info">
                 <span className="stat-value font-mono">{currentStreak}d</span>
@@ -382,10 +382,10 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
               <span>Less</span>
               <div className="legend-cells">
                 <div className="heatmap-cell" style={{ backgroundColor: 'var(--card-border)' }} />
-                <div className="heatmap-cell" style={{ backgroundColor: `${habit.color}3f` }} />
-                <div className="heatmap-cell" style={{ backgroundColor: `${habit.color}7f` }} />
-                <div className="heatmap-cell" style={{ backgroundColor: `${habit.color}bf` }} />
-                <div className="heatmap-cell" style={{ backgroundColor: habit.color }} />
+                <div className="heatmap-cell" style={{ backgroundColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 25%, transparent)` }} />
+                <div className="heatmap-cell" style={{ backgroundColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 50%, transparent)` }} />
+                <div className="heatmap-cell" style={{ backgroundColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 75%, transparent)` }} />
+                <div className="heatmap-cell" style={{ backgroundColor: `var(--color-${habit.category.toLowerCase()})` }} />
               </div>
               <span>More</span>
             </div>
@@ -395,7 +395,7 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
           <div className="details-section">
             <div className="calendar-section-header">
               <h4 className="section-title">Monthly Log</h4>
-              <div className="calendar-rate badge font-mono" style={{ backgroundColor: `${habit.color}15`, color: habit.color, borderColor: `${habit.color}25` }}>
+              <div className="calendar-rate badge font-mono" style={{ backgroundColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 8%, transparent)`, color: `var(--color-${habit.category.toLowerCase()})`, borderColor: `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 15%, transparent)` }}>
                 Month Completion: {getMonthlyCompletionRate()}%
               </div>
               <div className="calendar-nav">
@@ -443,13 +443,13 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
                     onClick={() => onToggleCompletion(habit.id, dStr)}
                     className={`calendar-cell ${!due ? 'cal-not-due' : ''} ${full ? 'cal-completed' : ''}`}
                     style={{
-                      borderColor: full ? habit.color : due ? 'rgba(39, 39, 42, 0.6)' : 'transparent',
-                      backgroundColor: full ? `${habit.color}1c` : 'transparent',
+                      borderColor: full ? `var(--color-${habit.category.toLowerCase()})` : due ? 'var(--input-border)' : 'transparent',
+                      backgroundColor: full ? `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 11%, transparent)` : 'transparent',
                     }}
                   >
                     <span className="cal-day-num">{date.getDate()}</span>
                     {checkCount > 0 && (
-                      <span className="cal-check-indicator" style={{ color: habit.color }}>
+                      <span className="cal-check-indicator" style={{ color: `var(--color-${habit.category.toLowerCase()})` }}>
                         {habit.timesPerDay > 1 ? `${checkCount}/${habit.timesPerDay}` : checkCount > 1 ? `x${checkCount}` : <CheckCircle size={10} />}
                       </span>
                     )}

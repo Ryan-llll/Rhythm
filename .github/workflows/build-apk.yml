@@ -1,0 +1,63 @@
+name: Build and Deploy Android APK
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'frontend/public/rhythm.apk'
+      - '.github/workflows/**'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: |
+          cd mobile
+          npm ci
+
+      - name: Expo Prebuild (Generate Native Android Project)
+        run: |
+          cd mobile
+          npx expo prebuild --platform android --no-install
+
+      - name: Build Android App (APK) via Gradle
+        run: |
+          cd mobile/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Copy APK to Frontend Public folder
+        run: |
+          mkdir -p frontend/public
+          cp mobile/android/app/build/outputs/apk/debug/app-debug.apk frontend/public/rhythm.apk
+
+      - name: Commit and Push APK to Main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/public/rhythm.apk
+          git commit -m "build: Update standalone Android APK [skip ci]" || echo "No changes to commit"
+          git push origin main

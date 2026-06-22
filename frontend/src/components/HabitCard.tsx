@@ -162,7 +162,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
     <div className="habit-card-row">
       <div className="habit-info-col" onClick={() => onOpenDetails(habit)}>
         <div className="habit-name-wrapper">
-          <span className="habit-color-indicator" style={{ backgroundColor: habit.color }}></span>
+          <span className="habit-color-indicator" style={{ backgroundColor: `var(--color-${habit.category.toLowerCase()})` }}></span>
           <h4 className="habit-name">{habit.name}</h4>
         </div>
         <div className="habit-meta">
@@ -176,8 +176,8 @@ export const HabitCard: React.FC<HabitCardProps> = ({
             </span>
           )}
           {currentStreak > 0 && (
-            <span className="habit-streak pulse-flame" style={{ color: habit.color }}>
-              <Flame size={12} fill={habit.color} />
+            <span className="habit-streak pulse-flame" style={{ color: `var(--color-${habit.category.toLowerCase()})` }}>
+              <Flame size={12} fill={`var(--color-${habit.category.toLowerCase()})`} />
               {currentStreak}d
             </span>
           )}
@@ -208,9 +208,9 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                   <button
                     className="day-checkbox"
                     style={{
-                      borderColor: isCompleted ? habit.color : 'var(--card-border)',
-                      backgroundColor: isCompleted ? `${habit.color}25` : 'transparent',
-                      color: isCompleted ? habit.color : 'transparent',
+                      borderColor: isCompleted ? `var(--color-${habit.category.toLowerCase()})` : 'var(--card-border)',
+                      backgroundColor: isCompleted ? `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 15%, transparent)` : 'transparent',
+                      color: isCompleted ? `var(--color-${habit.category.toLowerCase()})` : 'transparent',
                     }}
                     onClick={() => onToggleCompletion(habit.id, dateStr)}
                   >
@@ -219,7 +219,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
 
                   {completedCount > 0 && (
                     <div className="multi-count-controls">
-                      <span className="count-badge" style={{ backgroundColor: habit.color }}>
+                      <span className="count-badge" style={{ backgroundColor: `var(--color-${habit.category.toLowerCase()})` }}>
                         x{completedCount}
                       </span>
                       <div className="count-adjust-buttons">
@@ -251,9 +251,9 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                   <button
                     className="day-checkbox multi-slot-btn"
                     style={{
-                      borderColor: completedSlotsCount > 0 ? habit.color : 'var(--card-border)',
-                      backgroundColor: isCompleted ? `${habit.color}25` : 'transparent',
-                      color: completedSlotsCount > 0 ? habit.color : 'var(--text-muted)',
+                      borderColor: completedSlotsCount > 0 ? `var(--color-${habit.category.toLowerCase()})` : 'var(--card-border)',
+                      backgroundColor: isCompleted ? `color-mix(in srgb, var(--color-${habit.category.toLowerCase()}) 15%, transparent)` : 'transparent',
+                      color: completedSlotsCount > 0 ? `var(--color-${habit.category.toLowerCase()})` : 'var(--text-muted)',
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -310,7 +310,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           transition: border-color var(--transition-fast), transform var(--transition-fast);
         }
         .habit-card-row:hover {
-          border-color: rgba(216, 195, 165, 0.3);
+          border-color: color-mix(in srgb, var(--accent-color) 30%, transparent);
           transform: translateY(-1px);
         }
         .habit-info-col {
@@ -371,7 +371,7 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           padding: 6px 0;
         }
         .cell-today {
-          background-color: rgba(216, 195, 165, 0.05);
+          background-color: color-mix(in srgb, var(--accent-color) 5%, transparent);
           border-radius: 6px;
         }
         .cell-not-due {

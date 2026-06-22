@@ -5,10 +5,10 @@ import { HabitDetails } from './components/HabitDetails';
 import { HabitForm } from './components/HabitForm';
 import { 
   Plus, Search, Download, Upload, Calendar, 
-  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut, Flame, LogIn
+  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut, Flame, LogIn, Sun, Moon
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { Auth } from './components/Auth';
+import { LandingPage } from './components/LandingPage';
 import type { Session } from '@supabase/supabase-js';
 
 // Helper to format date safely as YYYY-MM-DD
@@ -26,6 +26,24 @@ export default function App() {
   const [useOfflineMode, setUseOfflineMode] = useState<boolean>(() => {
     return localStorage.getItem('rhythm_offline_mode') === 'true';
   });
+
+  // Theme state
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('rhythm_theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  const toggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('rhythm_theme', next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // 2. Habits and Completions State
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -313,10 +331,10 @@ export default function App() {
     return heatmapWeeks;
   };
 
-  const getCellColorForOverview = (colorHex: string, intensity: number) => {
+  const getCellColorForOverview = (category: string, intensity: number) => {
     if (intensity === 0) return 'var(--card-border)';
-    const opacities = [0, 0.25, 0.5, 0.75, 1];
-    return `${colorHex}${Math.floor(opacities[intensity] * 255).toString(16).padStart(2, '0')}`;
+    const pct = [0, 25, 50, 75, 100][intensity];
+    return `color-mix(in srgb, var(--color-${category.toLowerCase()}) ${pct}%, transparent)`;
   };
 
   // Calculations for Sidebar Statistics
@@ -808,11 +826,13 @@ export default function App() {
 
   if (!session && !useOfflineMode) {
     return (
-      <Auth
+      <LandingPage
         onContinueOffline={() => {
           setUseOfflineMode(true);
           localStorage.setItem('rhythm_offline_mode', 'true');
         }}
+        theme={theme}
+        toggleTheme={toggleTheme}
       />
     );
   }
@@ -822,9 +842,18 @@ export default function App() {
       {/* Sidebar navigation, stats, and auth state */}
       <aside className="app-sidebar">
         <div className="sidebar-header">
-          <div className="logo-section">
-            <Sparkles size={20} className="logo-sparkle" />
-            <h2 className="logo-title font-mono">Rhythm</h2>
+          <div className="logo-section-row">
+            <div className="logo-section">
+              <Sparkles size={20} className="logo-sparkle" />
+              <h2 className="logo-title font-mono">Rhythm</h2>
+            </div>
+            <button 
+              onClick={toggleTheme} 
+              className="theme-toggle-btn"
+              title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
           </div>
           <span className="app-subtitle">
             {session ? "Synced to Cloud" : "Offline Mode"}
@@ -1095,8 +1124,8 @@ export default function App() {
                                     key={day.dateStr}
                                     className={`heatmap-cell ${day.isFuture ? 'cell-future' : ''}`}
                                     style={{
-                                      backgroundColor: day.isFuture ? 'transparent' : getCellColorForOverview(habit.color, day.intensity),
-                                      borderColor: day.isFuture ? 'rgba(39, 39, 42, 0.3)' : 'transparent',
+                                      backgroundColor: day.isFuture ? 'transparent' : getCellColorForOverview(habit.category, day.intensity),
+                                      borderColor: day.isFuture ? 'color-mix(in srgb, var(--card-border) 30%, transparent)' : 'transparent',
                                     }}
                                     title={day.label}
                                   />
@@ -1265,6 +1294,12 @@ export default function App() {
           flex-direction: column;
           gap: 4px;
         }
+        .logo-section-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
         .logo-section {
           display: flex;
           align-items: center;
@@ -1277,6 +1312,24 @@ export default function App() {
           font-size: 1.4rem;
           font-weight: 700;
           color: var(--text-primary);
+        }
+        .theme-toggle-btn {
+          background: transparent;
+          border: 1px solid var(--card-border);
+          border-radius: 6px;
+          color: var(--text-secondary);
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+        .theme-toggle-btn:hover {
+          color: var(--text-primary);
+          background-color: var(--input-bg);
+          border-color: var(--text-muted);
         }
         .app-subtitle {
           font-size: 0.72rem;
