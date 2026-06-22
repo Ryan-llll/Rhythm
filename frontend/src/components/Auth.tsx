@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Sparkles, Mail, Lock, Loader } from 'lucide-react';
 
-export const Auth: React.FC = () => {
+interface AuthProps {
+  onContinueOffline: () => void;
+}
+
+export const Auth: React.FC<AuthProps> = ({ onContinueOffline }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -139,6 +143,18 @@ export const Auth: React.FC = () => {
             )}
           </button>
         </form>
+
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+
+        <button
+          type="button"
+          className="btn btn-outline offline-btn font-mono"
+          onClick={onContinueOffline}
+        >
+          Continue Offline (Local Storage)
+        </button>
       </div>
 
       <style>{`
@@ -260,6 +276,45 @@ export const Auth: React.FC = () => {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .auth-divider {
+          display: flex;
+          align-items: center;
+          text-align: center;
+          color: var(--text-muted);
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin: 8px 0;
+        }
+        .auth-divider::before,
+        .auth-divider::after {
+          content: '';
+          flex: 1;
+          border-bottom: 1px solid var(--card-border);
+        }
+        .auth-divider:not(:empty)::before {
+          margin-right: .5em;
+        }
+        .auth-divider:not(:empty)::after {
+          margin-left: .5em;
+        }
+        .offline-btn {
+          width: 100%;
+          padding: 12px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          border: 1px solid var(--card-border);
+          background-color: transparent;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 6px;
+          transition: all var(--transition-fast);
+        }
+        .offline-btn:hover {
+          background-color: var(--input-bg);
+          color: var(--text-primary);
+          border-color: var(--text-muted);
         }
       `}</style>
     </div>
