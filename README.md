@@ -2,24 +2,7 @@
 
 Rhythm is a clean, developer-centric habit tracker featuring a premium dark mode, GitHub-style contribution heatmaps, streaks, and a monthly logger.
 
-## 🚀 Getting Started
-
-Run the following commands in your terminal to start the app:
-
-```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start the local development server
-npm run dev
-```
-
-Once running, open [http://localhost:5173](http://localhost:5173) in your browser!
-
-## 🛠️ How to Use
+## 🛠️ Features
 
 1. **Check Off Habits**: Tap checkboxes in the weekly dashboard.
 2. **Multi-completions**: Hover over a completed checkmark to increment count (e.g. `x2`, `x3`).
