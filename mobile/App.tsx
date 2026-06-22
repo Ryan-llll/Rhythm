@@ -13,6 +13,7 @@ import {
   StatusBar,
   Platform,
   KeyboardAvoidingView,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './src/lib/supabase';
@@ -35,7 +36,9 @@ import {
   Edit,
   Eye,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download,
+  Upload
 } from 'lucide-react-native';
 
 // Categories and colors mapping matching web version
@@ -118,6 +121,8 @@ export default function App() {
   // Modals / Details
   const [activeDetailsHabit, setActiveDetailsHabit] = useState<Habit | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importJsonText, setImportJsonText] = useState('');
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
   const [slotCheckoffTarget, setSlotCheckoffTarget] = useState<{ habit: Habit; dateStr: string } | null>(null);
 
@@ -132,24 +137,78 @@ export default function App() {
   const [habitReminder, setHabitReminder] = useState('');
   const [hasReminder, setHasReminder] = useState(false);
 
+  // Load data function
+  const fetchUserData = async () => {
+    if (!session) return;
+    try {
+      const { data: dbHabits, error: habitsErr } = await supabase
+        .from('habits')
+        .select('*')
+        .order('created_at', { ascending: true });
+        
+      if (habitsErr) throw habitsErr;
+      
+      const mappedHabits: Habit[] = (dbHabits || []).map(h => ({
+        id: h.id,
+        name: h.name,
+        category: h.category as Category,
+        color: h.color,
+        frequency: {
+          type: h.frequency_type as any,
+          daysOfWeek: h.frequency_days_of_week || undefined,
+          intervalDays: h.frequency_interval_days || undefined,
+        },
+        timesPerDay: h.times_per_day,
+        slotNames: h.slot_names || undefined,
+        reminderTime: h.reminder_time || undefined,
+        createdAt: h.created_at.split('T')[0],
+      }));
+      setHabits(mappedHabits);
+
+      const { data: dbCompletions, error: completionsErr } = await supabase
+        .from('completions')
+        .select('*');
+        
+      if (completionsErr) throw completionsErr;
+
+      const log: CompletionLog = {};
+      (dbCompletions || []).forEach(c => {
+        if (!log[c.habit_id]) log[c.habit_id] = {};
+        log[c.habit_id][c.date] = {
+          count: c.count,
+          slots: c.slots || undefined
+        };
+      });
+      setCompletions(log);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
   // Initialize Auth Listener and Theme
   useEffect(() => {
-    AsyncStorage.getItem('rhythm_theme').then((savedTheme) => {
-      if (savedTheme === 'light' || savedTheme === 'dark') {
-        setTheme(savedTheme);
-      }
-    });
+    const initApp = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem('rhythm_theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          setTheme(savedTheme);
+        }
 
-    AsyncStorage.getItem('rhythm_offline_mode').then((savedOffline) => {
-      if (savedOffline === 'true') {
-        setUseOfflineMode(true);
-      }
-    });
+        const savedOffline = await AsyncStorage.getItem('rhythm_offline_mode');
+        if (savedOffline === 'true') {
+          setUseOfflineMode(true);
+        }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoadingSession(false);
-    });
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingSession(false);
+      }
+    };
+
+    initApp();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -188,54 +247,112 @@ export default function App() {
       return;
     }
 
-    const fetchUserData = async () => {
-      try {
-        const { data: dbHabits, error: habitsErr } = await supabase
-          .from('habits')
-          .select('*')
-          .order('created_at', { ascending: true });
-          
-        if (habitsErr) throw habitsErr;
-        
-        const mappedHabits: Habit[] = (dbHabits || []).map(h => ({
-          id: h.id,
-          name: h.name,
-          category: h.category as Category,
-          color: h.color,
-          frequency: {
-            type: h.frequency_type as any,
-            daysOfWeek: h.frequency_days_of_week || undefined,
-            intervalDays: h.frequency_interval_days || undefined,
-          },
-          timesPerDay: h.times_per_day,
-          slotNames: h.slot_names || undefined,
-          reminderTime: h.reminder_time || undefined,
-          createdAt: h.created_at.split('T')[0],
-        }));
-        setHabits(mappedHabits);
-
-        const { data: dbCompletions, error: completionsErr } = await supabase
-          .from('completions')
-          .select('*');
-          
-        if (completionsErr) throw completionsErr;
-
-        const log: CompletionLog = {};
-        (dbCompletions || []).forEach(c => {
-          if (!log[c.habit_id]) log[c.habit_id] = {};
-          log[c.habit_id][c.date] = {
-            count: c.count,
-            slots: c.slots || undefined
-          };
-        });
-        setCompletions(log);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
     fetchUserData();
   }, [session, useOfflineMode]);
+
+  // Backup Export
+  const handleExportBackup = async () => {
+    try {
+      const jsonString = JSON.stringify({ habits, completions }, null, 2);
+      await Share.share({
+        message: jsonString,
+        title: `Rhythm Backup - ${formatDateStr(new Date())}`,
+      });
+    } catch (error: any) {
+      Alert.alert('Export Failed', error.message);
+    }
+  };
+
+  // Backup Import
+  const handleImportBackup = async () => {
+    if (!importJsonText.trim()) {
+      Alert.alert('Error', 'Please paste the backup JSON text first.');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(importJsonText);
+      if (parsed.habits && parsed.completions) {
+        const confirmMsg = session
+          ? 'Importing a backup will merge and update your habits in the cloud. Do you want to proceed?'
+          : 'Importing a backup will merge and update your local habits. Do you want to proceed?';
+        
+        Alert.alert(
+          'Confirm Import',
+          confirmMsg,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Proceed',
+              onPress: async () => {
+                try {
+                  if (session) {
+                    const userId = session.user.id;
+                    const habitsToImport = parsed.habits;
+                    const habitsData = habitsToImport.map((h: any) => ({
+                      id: h.id,
+                      user_id: userId,
+                      name: h.name,
+                      category: h.category,
+                      color: h.color,
+                      frequency_type: h.frequency?.type || 'daily',
+                      frequency_days_of_week: h.frequency?.daysOfWeek || null,
+                      frequency_interval_days: h.frequency?.intervalDays || null,
+                      times_per_day: h.timesPerDay,
+                      slot_names: h.slotNames || null,
+                      reminder_time: h.reminderTime || null,
+                      created_at: h.createdAt
+                    }));
+
+                    const { error: habitsError } = await supabase
+                      .from('habits')
+                      .upsert(habitsData, { onConflict: 'id' });
+
+                    if (habitsError) throw habitsError;
+
+                    const completionRows: any[] = [];
+                    Object.entries(parsed.completions).forEach(([habitId, dates]: [string, any]) => {
+                      Object.entries(dates).forEach(([dateStr, comp]: [string, any]) => {
+                        completionRows.push({
+                          user_id: userId,
+                          habit_id: habitId,
+                          date: dateStr,
+                          count: comp.count || 0,
+                          slots: comp.slots || null
+                        });
+                      });
+                    });
+
+                    if (completionRows.length > 0) {
+                      const { error: compError } = await supabase
+                        .from('completions')
+                        .upsert(completionRows, { onConflict: 'user_id,habit_id,date' });
+                      if (compError) throw compError;
+                    }
+                    
+                    await fetchUserData();
+                  } else {
+                    setHabits(parsed.habits);
+                    setCompletions(parsed.completions);
+                    await AsyncStorage.setItem('rhythm_local_habits', JSON.stringify(parsed.habits));
+                    await AsyncStorage.setItem('rhythm_local_completions', JSON.stringify(parsed.completions));
+                  }
+                  Alert.alert('Success', 'Backup imported successfully!');
+                  setShowImportModal(false);
+                  setImportJsonText('');
+                } catch (err: any) {
+                  Alert.alert('Import Failed', err.message);
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Invalid Format', 'The pasted backup JSON does not contain valid habits or completions.');
+      }
+    } catch (error: any) {
+      Alert.alert('Import Failed', 'Failed to parse JSON. Error: ' + error.message);
+    }
+  };
 
   // Theme Colors
   const colors = {
@@ -249,6 +366,8 @@ export default function App() {
     textMuted: theme === 'dark' ? '#71717a' : '#94a3b8',
     accent: theme === 'dark' ? '#d8c3a5' : '#b5986c', // Gold
   };
+
+  const styles = React.useMemo(() => getStyles(colors, theme), [theme]);
 
   const getWeekDays = (offset: number) => {
     const today = new Date();
@@ -706,6 +825,23 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
+  // Render Loading / Splash Screen
+  if (loadingSession) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#09090b' }}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ alignItems: 'center', gap: 16 }}>
+          <Sparkles size={48} color="#d8c3a5" />
+          <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#f4f4f5', letterSpacing: -0.5 }}>Rhythm</Text>
+          <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#d8c3a5', letterSpacing: 1.5, marginTop: -4 }}>
+            DEVELOPER HABIT TRACKER
+          </Text>
+          <ActivityIndicator size="large" color="#d8c3a5" style={{ marginTop: 24 }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // Render Auth Path
   if (!session && !useOfflineMode) {
     return (
@@ -1051,6 +1187,18 @@ export default function App() {
             )}
           </ScrollView>
         )}
+      </View>
+
+      {/* Backup Buttons */}
+      <View style={styles.backupActions}>
+        <TouchableOpacity style={styles.backupBtn} onPress={handleExportBackup}>
+          <Download size={12} color={colors.textSecondary} />
+          <Text style={styles.backupBtnText}>Export Backup</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.backupBtn} onPress={() => setShowImportModal(true)}>
+          <Upload size={12} color={colors.textSecondary} />
+          <Text style={styles.backupBtnText}>Import Backup</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Footer info & sign out */}
@@ -1465,14 +1613,82 @@ export default function App() {
           )}
         </View>
       </Modal>
+
+      {/* Modal 4: Import Backup Overlay */}
+      <Modal
+        visible={showImportModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowImportModal(false);
+          setImportJsonText('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalWrapper}
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Import Backup JSON</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowImportModal(false);
+                    setImportJsonText('');
+                  }}
+                  style={styles.closeBtn}
+                >
+                  <X size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 18, gap: 12 }}>
+                <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                  Paste the JSON backup string that you exported. This will merge habits and completion history.
+                </Text>
+
+                <TextInput
+                  style={[
+                    styles.formInput,
+                    {
+                      height: 180,
+                      textAlignVertical: 'top',
+                      paddingTop: 10,
+                      backgroundColor: colors.inputBg,
+                      borderColor: colors.inputBorder,
+                      color: colors.textPrimary,
+                    },
+                  ]}
+                  multiline
+                  placeholder='{"habits": [...], "completions": {...}}'
+                  placeholderTextColor={colors.textMuted}
+                  value={importJsonText}
+                  onChangeText={setImportJsonText}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                <TouchableOpacity
+                  style={[styles.doneBtn, { backgroundColor: colors.accent }]}
+                  onPress={handleImportBackup}
+                >
+                  <Text style={{ fontWeight: 'bold', color: '#18181b' }}>Validate & Import Data</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any, theme: string) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#09090b',
+    backgroundColor: colors.bg,
   },
   header: {
     flexDirection: 'row',
@@ -1481,7 +1697,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: colors.border,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -1491,15 +1707,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#f4f4f5',
+    color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   themeBtn: {
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#18181b',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   authContainer: {
     flex: 1,
@@ -1512,14 +1728,14 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     padding: 24,
     borderRadius: 16,
-    backgroundColor: '#18181b',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     gap: 16,
   },
   authTabRow: {
     flexDirection: 'row',
-    backgroundColor: '#27272a',
+    backgroundColor: colors.border,
     borderRadius: 8,
     padding: 3,
     marginBottom: 4,
@@ -1531,15 +1747,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   authTabActive: {
-    backgroundColor: '#3f3f46',
+    backgroundColor: colors.inputBorder,
   },
   authTabText: {
-    color: '#a1a1aa',
+    color: colors.textSecondary,
     fontWeight: '600',
     fontSize: 13,
   },
   authTabTextActive: {
-    color: '#d8c3a5',
+    color: colors.accent,
   },
   inputWrapper: {
     gap: 6,
@@ -1547,34 +1763,34 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#a1a1aa',
+    color: colors.textSecondary,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: '#3f3f46',
+    borderColor: colors.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 12,
-    color: '#f4f4f5',
-    backgroundColor: '#27272a',
+    color: colors.textPrimary,
+    backgroundColor: colors.border,
     fontSize: 14,
   },
   authBtn: {
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#d8c3a5',
+    backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
   },
   authBtnText: {
-    color: '#18181b',
+    color: colors.card,
     fontWeight: 'bold',
     fontSize: 14,
   },
   orText: {
     textAlign: 'center',
-    color: '#71717a',
+    color: colors.textMuted,
     fontSize: 12,
     marginVertical: 4,
   },
@@ -1582,21 +1798,21 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   offlineBtnText: {
-    color: '#a1a1aa',
+    color: colors.textSecondary,
     fontWeight: 'bold',
     fontSize: 13,
   },
   navigationRow: {
     flexDirection: 'row',
-    backgroundColor: '#18181b',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: colors.border,
     paddingHorizontal: 16,
   },
   navTab: {
@@ -1607,15 +1823,15 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   navTabActive: {
-    borderBottomColor: '#d8c3a5',
+    borderBottomColor: colors.accent,
   },
   navTabText: {
     fontSize: 14,
-    color: '#a1a1aa',
+    color: colors.textSecondary,
     fontWeight: '700',
   },
   navTabTextActive: {
-    color: '#f4f4f5',
+    color: colors.textPrimary,
   },
   viewContainer: {
     flex: 1,
@@ -1624,13 +1840,13 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: colors.border,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#18181b',
-    borderColor: '#27272a',
+    backgroundColor: colors.card,
+    borderColor: colors.border,
     borderWidth: 1,
     borderRadius: 8,
     height: 40,
@@ -1641,7 +1857,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#f4f4f5',
+    color: colors.textPrimary,
     fontSize: 14,
     padding: 0,
   },
@@ -1656,19 +1872,19 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 9999,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     marginRight: 8,
   },
   categoryCapsuleActive: {
-    backgroundColor: '#27272a',
-    borderColor: '#d8c3a5',
+    backgroundColor: colors.border,
+    borderColor: colors.accent,
   },
   categoryText: {
     fontSize: 12,
-    color: '#a1a1aa',
+    color: colors.textSecondary,
   },
   categoryTextActive: {
-    color: '#d8c3a5',
+    color: colors.accent,
     fontWeight: 'bold',
   },
   catDot: {
@@ -1687,18 +1903,18 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#18181b',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   weekLabelText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#f4f4f5',
+    color: colors.textPrimary,
   },
   habitCard: {
-    backgroundColor: '#18181b',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
@@ -1724,7 +1940,7 @@ const styles = StyleSheet.create({
   habitName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f4f4f5',
+    color: colors.textPrimary,
     maxWidth: '85%',
   },
   metaRow: {
@@ -1761,7 +1977,7 @@ const styles = StyleSheet.create({
     aspectRatio: 0.9,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -1769,7 +1985,7 @@ const styles = StyleSheet.create({
   },
   dayNumText: {
     fontSize: 9,
-    color: '#71717a',
+    color: colors.textMuted,
     marginBottom: 2,
     fontWeight: 'bold',
   },
@@ -1781,18 +1997,18 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: colors.border,
   },
   heatmapOverviewTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#f4f4f5',
+    color: colors.textPrimary,
     marginHorizontal: 16,
   },
   heatmapCard: {
-    backgroundColor: '#18181b',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
@@ -1807,7 +2023,7 @@ const styles = StyleSheet.create({
   heatmapName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f4f4f5',
+    color: colors.textPrimary,
   },
   heatmapRow: {
     flexDirection: 'row',
@@ -1827,8 +2043,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#27272a',
-    backgroundColor: '#18181b',
+    borderTopColor: colors.border,
+    backgroundColor: colors.card,
     alignItems: 'center',
   },
   footerBtn: {
@@ -1839,13 +2055,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#09090b',
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
   },
   footerBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#a1a1aa',
+    color: colors.textSecondary,
   },
   fab: {
     position: 'absolute',
@@ -1854,7 +2070,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#d8c3a5',
+    backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
@@ -1870,7 +2086,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9, 9, 11, 0.75)',
+    backgroundColor: theme === 'dark' ? 'rgba(9, 9, 11, 0.75)' : 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -1933,8 +2149,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#18181b',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
   },
   catBadgeText: {
     fontSize: 11,
@@ -1951,7 +2167,7 @@ const styles = StyleSheet.create({
   slotsInputSection: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: '#09090b',
+    backgroundColor: colors.bg,
     borderRadius: 8,
   },
   slotNameInput: {
@@ -1964,7 +2180,7 @@ const styles = StyleSheet.create({
   },
   freqTabRow: {
     flexDirection: 'row',
-    backgroundColor: '#18181b',
+    backgroundColor: colors.card,
     borderRadius: 8,
     padding: 3,
   },
@@ -2009,7 +2225,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 16,
     borderTopWidth: 1,
-    backgroundColor: 'rgba(9, 9, 11, 0.2)',
+    backgroundColor: theme === 'dark' ? 'rgba(9, 9, 11, 0.2)' : 'rgba(15, 23, 42, 0.1)',
   },
   footerCancelBtn: {
     paddingVertical: 10,
@@ -2077,5 +2293,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
+  },
+  backupActions: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  backupBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  backupBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
   }
 });
