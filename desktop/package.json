@@ -10,7 +10,7 @@
   "author": "Rayan Amlal",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^34.0.0",
+    "electron": "^34.5.8",
     "electron-builder": "^25.0.0"
   },
   "build": {
