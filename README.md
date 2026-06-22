@@ -7,6 +7,9 @@ Rhythm is a clean, developer-centric habit tracker featuring a premium dark mode
 Run the following commands in your terminal to start the app:
 
 ```bash
+# Navigate to the frontend directory
+cd frontend
+
 # Install dependencies
 npm install
 
