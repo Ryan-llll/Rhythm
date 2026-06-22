@@ -18,7 +18,8 @@
     "productName": "Rhythm",
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dir"]
+      "target": ["dir"],
+      "icon": "icon.icns"
     },
     "directories": {
       "output": "dist"
@@ -26,7 +27,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "package.json"
+      "package.json",
+      "icon.icns"
     ]
   },
   "allowScripts": {
