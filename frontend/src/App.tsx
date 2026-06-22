@@ -29,7 +29,7 @@ export default function App() {
   const [completions, setCompletions] = useState<CompletionLog>({});
   
   // Dashboard view mode
-  const [viewMode, setViewMode] = useState<'weekly' | 'heatmaps'>('weekly');
+  const [viewMode, setViewMode] = useState<'weekly' | 'heatmaps'>('heatmaps');
 
   // Filters & Offsets
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
