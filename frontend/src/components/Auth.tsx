@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Sparkles, Mail, Lock, Loader } from 'lucide-react';
+import { Mail, Lock, Loader } from 'lucide-react';
+import { OxygenLogo } from './OxygenLogo';
 
 interface AuthProps {
   onContinueOffline: () => void;
@@ -52,7 +53,7 @@ export const Auth: React.FC<AuthProps> = ({ onContinueOffline }) => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo font-mono">
-            <Sparkles size={24} className="logo-sparkle" />
+            <OxygenLogo size={24} className="logo-sparkle" />
             <span>Rhythm</span>
           </div>
           <span className="auth-subtitle">Developer Habit Tracker</span>
