@@ -587,7 +587,6 @@ export const HabitDetails: React.FC<HabitDetailsProps> = ({
         .heatmap-cell:hover {
           transform: scale(1.3);
           z-index: 10;
-          box-shadow: 0 0 4px rgba(255,255,255,0.2);
         }
         .cell-future {
           background-color: transparent;

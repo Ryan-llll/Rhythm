@@ -174,7 +174,6 @@ export const Auth: React.FC<AuthProps> = ({ onContinueOffline }) => {
           width: 100%;
           max-width: 420px;
           padding: 32px;
-          box-shadow: var(--shadow-lg);
           display: flex;
           flex-direction: column;
           gap: 24px;

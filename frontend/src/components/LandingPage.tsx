@@ -334,7 +334,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         }
         .text-glow {
           color: var(--accent-color);
-          text-shadow: 0 0 20px rgba(216, 195, 165, 0.2);
         }
         .hero-description {
           font-size: 1.1rem;
@@ -350,7 +349,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           border-radius: 12px;
           padding: 20px;
           margin-top: 12px;
-          box-shadow: var(--shadow-md);
         }
         .preview-header {
           display: flex;
@@ -427,7 +425,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           background-color: var(--accent-color);
           color: #18181b;
           font-weight: bold;
-          box-shadow: 0 4px 14px rgba(216, 195, 165, 0.4);
           animation: floatAnimation 3s ease-in-out infinite;
         }
         @keyframes floatAnimation {
@@ -463,7 +460,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           border: 1px solid var(--card-border);
           border-radius: 16px;
           padding: 32px;
-          box-shadow: var(--shadow-lg), 0 0 40px rgba(216, 195, 165, 0.03);
           display: flex;
           flex-direction: column;
           gap: 24px;

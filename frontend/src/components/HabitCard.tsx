@@ -465,7 +465,6 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           background-color: #1f1f23;
           border: 1px solid var(--card-border);
           border-radius: var(--border-radius);
-          box-shadow: var(--shadow-lg);
           padding: 8px;
           z-index: 20;
           width: 140px;

@@ -359,7 +359,6 @@ export const HabitForm: React.FC<HabitFormProps> = ({ habitToEdit, onClose, onSa
         }
         .palette-color-btn.active {
           border-color: var(--text-primary);
-          box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
         }
         
         .tab-control {
@@ -388,7 +387,6 @@ export const HabitForm: React.FC<HabitFormProps> = ({ habitToEdit, onClose, onSa
         .tab-btn.active {
           background-color: var(--card-border);
           color: var(--text-primary);
-          box-shadow: var(--shadow-sm);
         }
         
         .week-days-select {

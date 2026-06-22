@@ -1225,7 +1225,6 @@ export default function App() {
         .tab-btn.active {
           background-color: var(--card-border);
           color: var(--text-primary);
-          box-shadow: var(--shadow-sm);
         }
 
         /* Heatmap Overview Cards List Styling */
@@ -1527,7 +1526,6 @@ export default function App() {
         .search-input:focus {
           outline: none;
           border-color: var(--accent-color);
-          box-shadow: 0 0 8px rgba(216, 195, 165, 0.15);
         }
 
         /* Week Navigation Controller bar */
