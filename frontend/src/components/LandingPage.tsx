@@ -109,10 +109,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <main className="landing-hero">
         {/* Left Side: Brand Details */}
         <div className="hero-info slide-up">
-          <div className="badge-wrapper">
-            <span className="badge-new font-mono">PHASE 4 RELEASE</span>
-          </div>
-          
           <h1 className="hero-title">
             The developer-centric <span className="text-glow">habit tracker</span> built for consistency.
           </h1>
@@ -152,8 +148,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="hero-auth slide-up-delayed">
           <div className="auth-card-glowing">
             <div className="auth-card-header">
-              <span className="auth-card-subtitle font-mono">sync_state: idle</span>
-              <h3 className="auth-card-title">{isSignUp ? 'Create Cloud Profile' : 'Access Cloud Database'}</h3>
+              <h3 className="auth-card-title">{isSignUp ? 'Create Account' : 'Sign In to Sync'}</h3>
             </div>
 
             <div className="auth-tabs">

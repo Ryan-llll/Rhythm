@@ -11,8 +11,8 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
-  Share,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './src/lib/supabase';
@@ -24,12 +24,6 @@ import {
   Flame,
   Trash2,
   LogOut,
-  Download,
-  Upload,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  CheckSquare,
   Check,
   Minus,
   Mail,
@@ -38,7 +32,10 @@ import {
   Sun,
   X,
   Clock,
-  Compass
+  Edit,
+  Eye,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react-native';
 
 // Categories and colors mapping matching web version
@@ -85,6 +82,8 @@ const CATEGORY_COLORS: Record<Category, string> = {
   Life: '#4ade80',     // Green
 };
 
+const DAYS_OF_WEEK_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 // Helper to format date safely as YYYY-MM-DD
 const formatDateStr = (date: Date): string => {
   const y = date.getFullYear();
@@ -111,7 +110,7 @@ export default function App() {
   const [completions, setCompletions] = useState<CompletionLog>({});
   
   // Dashboard view mode
-  const [viewMode, setViewMode] = useState<'weekly' | 'heatmaps'>('heatmaps');
+  const [viewMode, setViewMode] = useState<'weekly' | 'heatmaps'>('weekly');
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -120,6 +119,7 @@ export default function App() {
   const [activeDetailsHabit, setActiveDetailsHabit] = useState<Habit | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
+  const [slotCheckoffTarget, setSlotCheckoffTarget] = useState<{ habit: Habit; dateStr: string } | null>(null);
 
   // Add Habit Form Inputs
   const [habitName, setHabitName] = useState('');
@@ -250,327 +250,6 @@ export default function App() {
     accent: theme === 'dark' ? '#d8c3a5' : '#b5986c', // Gold
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.bg,
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 15,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    logoContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    logoText: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-    },
-    themeBtn: {
-      padding: 8,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.card,
-    },
-    authContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-      backgroundColor: colors.bg,
-    },
-    authCard: {
-      width: '100%',
-      maxWidth: 400,
-      padding: 24,
-      borderRadius: 12,
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 16,
-    },
-    authTitle: {
-      fontSize: 22,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-      textAlign: 'center',
-    },
-    authTabRow: {
-      flexDirection: 'row',
-      backgroundColor: colors.inputBg,
-      borderRadius: 8,
-      padding: 3,
-      marginBottom: 8,
-    },
-    authTab: {
-      flex: 1,
-      paddingVertical: 10,
-      alignItems: 'center',
-      borderRadius: 6,
-    },
-    authTabActive: {
-      backgroundColor: colors.border,
-    },
-    authTabText: {
-      color: colors.textSecondary,
-      fontWeight: '600',
-      fontSize: 14,
-    },
-    authTabTextActive: {
-      color: colors.accent,
-    },
-    inputWrapper: {
-      gap: 6,
-    },
-    inputLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    input: {
-      height: 48,
-      borderWidth: 1,
-      borderColor: colors.inputBorder,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      color: colors.textPrimary,
-      backgroundColor: colors.inputBg,
-    },
-    authBtn: {
-      height: 48,
-      borderRadius: 8,
-      backgroundColor: colors.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: 8,
-    },
-    authBtnText: {
-      color: '#18181b',
-      fontWeight: 'bold',
-      fontSize: 15,
-    },
-    orText: {
-      textAlign: 'center',
-      color: colors.textMuted,
-      fontSize: 12,
-      marginVertical: 4,
-    },
-    offlineBtn: {
-      height: 48,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'transparent',
-    },
-    offlineBtnText: {
-      color: colors.textSecondary,
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
-    // Main App Styles
-    navigationRow: {
-      flexDirection: 'row',
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      paddingHorizontal: 16,
-    },
-    navTab: {
-      flex: 1,
-      paddingVertical: 14,
-      alignItems: 'center',
-      borderBottomWidth: 2,
-      borderBottomColor: 'transparent',
-    },
-    navTabActive: {
-      borderBottomColor: colors.accent,
-    },
-    navTabText: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      fontWeight: '600',
-    },
-    navTabTextActive: {
-      color: colors.textPrimary,
-    },
-    viewContainer: {
-      flex: 1,
-    },
-    habitCard: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      padding: 16,
-      marginHorizontal: 16,
-      marginTop: 12,
-      gap: 12,
-    },
-    habitHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    habitTitleWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      flex: 1,
-    },
-    colorDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-    },
-    habitName: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      flex: 1,
-    },
-    metaRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-      flexWrap: 'wrap',
-    },
-    badge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 4,
-    },
-    badgeText: {
-      fontSize: 10,
-      fontWeight: 'bold',
-      color: '#18181b',
-    },
-    streakWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    streakText: {
-      fontSize: 12,
-      fontWeight: 'bold',
-    },
-    weeklyGrid: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 4,
-      marginTop: 6,
-    },
-    dayCell: {
-      flex: 1,
-      aspectRatio: 1,
-      borderRadius: 6,
-      borderWidth: 1.5,
-      borderColor: colors.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: 'transparent',
-    },
-    dayNumText: {
-      fontSize: 10,
-      color: colors.textMuted,
-      marginBottom: 2,
-    },
-    slotsRatioText: {
-      fontSize: 9,
-      fontWeight: 'bold',
-    },
-    // Heatmap Styles
-    heatmapOverviewTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.textPrimary,
-      marginHorizontal: 16,
-      marginTop: 16,
-    },
-    heatmapCard: {
-      backgroundColor: colors.card,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 12,
-      padding: 16,
-      marginHorizontal: 16,
-      marginTop: 12,
-    },
-    heatmapTitleBlock: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    heatmapName: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-    heatmapRow: {
-      flexDirection: 'row',
-      gap: 3,
-    },
-    heatmapCol: {
-      gap: 3,
-    },
-    heatmapCell: {
-      width: 10,
-      height: 10,
-      borderRadius: 2,
-      borderWidth: 0.5,
-    },
-    footerActions: {
-      padding: 16,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      backgroundColor: colors.card,
-    },
-    footerBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    footerBtnText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.textSecondary,
-    },
-    fab: {
-      position: 'absolute',
-      right: 20,
-      bottom: 80,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: colors.accent,
-      justifyContent: 'center',
-      alignItems: 'center',
-      elevation: 5,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
-    },
-  });
-
   const getWeekDays = (offset: number) => {
     const today = new Date();
     const day = today.getDay();
@@ -630,7 +309,7 @@ export default function App() {
       setUseOfflineMode(false);
       AsyncStorage.removeItem('rhythm_offline_mode');
       setHabits([]);
-      setCompletions([]);
+      setCompletions({});
     }
   };
 
@@ -688,6 +367,11 @@ export default function App() {
       };
       return newComps;
     });
+
+    // Update active checkoff modal if open
+    if (slotCheckoffTarget && slotCheckoffTarget.habit.id === habitId && slotCheckoffTarget.dateStr === dateStr) {
+      setSlotCheckoffTarget({ habit, dateStr });
+    }
   };
 
   // Calculate Streak helper
@@ -733,9 +417,19 @@ export default function App() {
     return streak;
   };
 
+  // Get total checks count
+  const getHabitTotalChecks = (habit: Habit): number => {
+    const habitComps = completions[habit.id] || {};
+    let total = 0;
+    Object.values(habitComps).forEach((log) => {
+      total += log.count;
+    });
+    return total;
+  };
+
   // Generate 6-Month Heatmap cells
   const generateHeatmapWeeks = (habit: Habit) => {
-    const weeksCount = 26; // Approx 6 months
+    const weeksCount = 20; // 20 weeks fits well on landscape scroll
     const totalDays = weeksCount * 7;
     const days = [];
     const today = new Date();
@@ -786,6 +480,232 @@ export default function App() {
     return weeks;
   };
 
+  // Reset form inputs
+  const resetForm = () => {
+    setHabitName('');
+    setHabitCategory('Faith');
+    setHabitFreqType('daily');
+    setHabitDaysOfWeek([1, 2, 3, 4, 5]);
+    setHabitIntervalDays(3);
+    setHabitTimesPerDay(1);
+    setHabitSlotNames([]);
+    setHabitReminder('');
+    setHasReminder(false);
+    setEditingHabitId(null);
+  };
+
+  // Category changes handler inside form
+  const handleCategoryChange = (cat: Category) => {
+    setHabitCategory(cat);
+    if (cat === 'Faith') {
+      setHabitTimesPerDay(5);
+      setHabitSlotNames(['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']);
+      setHasReminder(true);
+      setHabitReminder('14:00');
+    } else {
+      setHabitTimesPerDay(1);
+      setHabitSlotNames([]);
+      setHasReminder(false);
+      setHabitReminder('');
+    }
+  };
+
+  const handleTimesPerDayChange = (times: number) => {
+    const valid = Math.max(1, Math.min(10, times));
+    setHabitTimesPerDay(valid);
+    
+    const newSlots = [...habitSlotNames];
+    if (valid > newSlots.length) {
+      for (let i = newSlots.length; i < valid; i++) {
+        if (habitCategory === 'Faith' && valid === 5) {
+          const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+          newSlots.push(prayers[i]);
+        } else {
+          newSlots.push(`Slot ${i + 1}`);
+        }
+      }
+    } else if (valid < newSlots.length) {
+      newSlots.splice(valid);
+    }
+    setHabitSlotNames(newSlots);
+  };
+
+  const toggleDayOfWeek = (dayVal: number) => {
+    if (habitDaysOfWeek.includes(dayVal)) {
+      setHabitDaysOfWeek(habitDaysOfWeek.filter(d => d !== dayVal));
+    } else {
+      setHabitDaysOfWeek([...habitDaysOfWeek, dayVal].sort());
+    }
+  };
+
+  const handleSlotNameChange = (index: number, name: string) => {
+    const updated = [...habitSlotNames];
+    updated[index] = name;
+    setHabitSlotNames(updated);
+  };
+
+  // Save/Create Habit
+  const handleSaveHabit = async () => {
+    if (!habitName.trim()) {
+      Alert.alert('Error', 'Please enter a habit name.');
+      return;
+    }
+    if (!session && !useOfflineMode) return;
+
+    const frequency = {
+      type: habitFreqType,
+      daysOfWeek: habitFreqType === 'weekly' ? habitDaysOfWeek : undefined,
+      intervalDays: habitFreqType === 'interval' ? habitIntervalDays : undefined,
+    };
+
+    const habitData = {
+      name: habitName.trim(),
+      category: habitCategory,
+      color: CATEGORY_COLORS[habitCategory],
+      frequency,
+      timesPerDay: habitTimesPerDay,
+      slotNames: habitTimesPerDay > 1 ? habitSlotNames : undefined,
+      reminderTime: hasReminder && habitReminder ? habitReminder : undefined,
+    };
+
+    try {
+      if (editingHabitId) {
+        if (session) {
+          const { error } = await supabase
+            .from('habits')
+            .update({
+              name: habitData.name,
+              category: habitData.category,
+              color: habitData.color,
+              frequency_type: habitData.frequency.type,
+              frequency_days_of_week: habitData.frequency.daysOfWeek || null,
+              frequency_interval_days: habitData.frequency.intervalDays || null,
+              times_per_day: habitData.timesPerDay,
+              slot_names: habitData.slotNames || null,
+              reminder_time: habitData.reminderTime || null
+            })
+            .eq('id', editingHabitId);
+          if (error) throw error;
+        }
+        setHabits(prev => prev.map(h => h.id === editingHabitId ? { ...h, ...habitData } as Habit : h));
+      } else {
+        let newHabit: Habit;
+        if (session) {
+          const { data, error } = await supabase
+            .from('habits')
+            .insert({
+              user_id: session.user.id,
+              name: habitData.name,
+              category: habitData.category,
+              color: habitData.color,
+              frequency_type: habitData.frequency.type,
+              frequency_days_of_week: habitData.frequency.daysOfWeek || null,
+              frequency_interval_days: habitData.frequency.intervalDays || null,
+              times_per_day: habitData.timesPerDay,
+              slot_names: habitData.slotNames || null,
+              reminder_time: habitData.reminderTime || null
+            })
+            .select()
+            .single();
+          if (error) throw error;
+          newHabit = {
+            id: data.id,
+            name: data.name,
+            category: data.category as Category,
+            color: data.color,
+            frequency: {
+              type: data.frequency_type as any,
+              daysOfWeek: data.frequency_days_of_week || undefined,
+              intervalDays: data.frequency_interval_days || undefined,
+            },
+            timesPerDay: data.times_per_day,
+            slotNames: data.slot_names || undefined,
+            reminderTime: data.reminder_time || undefined,
+            createdAt: data.created_at.split('T')[0],
+          };
+        } else {
+          newHabit = {
+            id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+            name: habitData.name,
+            category: habitData.category,
+            color: habitData.color,
+            frequency: habitData.frequency,
+            timesPerDay: habitData.timesPerDay,
+            slotNames: habitData.slotNames,
+            reminderTime: habitData.reminderTime,
+            createdAt: formatDateStr(new Date()),
+          };
+        }
+        setHabits(prev => [...prev, newHabit]);
+      }
+      setShowAddModal(false);
+      resetForm();
+    } catch (err: any) {
+      Alert.alert('Error', `Failed to save habit: ${err.message}`);
+    }
+  };
+
+  const handleEditHabit = (habit: Habit) => {
+    setEditingHabitId(habit.id);
+    setHabitName(habit.name);
+    setHabitCategory(habit.category);
+    setHabitFreqType(habit.frequency.type);
+    setHabitDaysOfWeek(habit.frequency.daysOfWeek || [1, 2, 3, 4, 5]);
+    setHabitIntervalDays(habit.frequency.intervalDays || 3);
+    setHabitTimesPerDay(habit.timesPerDay);
+    setHabitSlotNames(habit.slotNames || []);
+    if (habit.reminderTime) {
+      setHasReminder(true);
+      setHabitReminder(habit.reminderTime);
+    } else {
+      setHasReminder(false);
+      setHabitReminder('');
+    }
+    setActiveDetailsHabit(null);
+    setShowAddModal(true);
+  };
+
+  const handleDeleteHabit = (habitId: string) => {
+    Alert.alert(
+      'Delete Habit',
+      'Are you sure you want to delete this habit? All check-in history will be lost.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (session) {
+                const { error } = await supabase
+                  .from('habits')
+                  .delete()
+                  .eq('id', habitId);
+                if (error) throw error;
+              }
+              setHabits(prev => prev.filter(h => h.id !== habitId));
+              setCompletions(prev => {
+                const copy = { ...prev };
+                delete copy[habitId];
+                return copy;
+              });
+              setActiveDetailsHabit(null);
+            } catch (err: any) {
+              Alert.alert('Error', `Failed to delete habit: ${err.message}`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  // Filter logic
+  const filteredHabits = habits.filter(habit => {
+    const matchesCategory = selectedCategory === 'All' || habit.category === selectedCategory;
+    const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   // Render Auth Path
   if (!session && !useOfflineMode) {
     return (
@@ -797,7 +717,9 @@ export default function App() {
               <Sparkles size={24} color={colors.accent} />
               <Text style={styles.logoText}>Rhythm</Text>
             </View>
-            <Text style={colors.textSecondary}>DEVELOPER HABIT TRACKER</Text>
+            <Text style={{ fontSize: 11, fontWeight: 'bold', color: colors.accent, textAlign: 'center', letterSpacing: 1.5, marginTop: -8 }}>
+              DEVELOPER HABIT TRACKER
+            </Text>
             
             <View style={styles.authTabRow}>
               <TouchableOpacity
@@ -898,139 +820,1262 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
-      {/* Dashboard Lists */}
-      <ScrollView style={styles.viewContainer}>
+      {/* Main content body */}
+      <View style={{ flex: 1 }}>
         {viewMode === 'weekly' ? (
-          // Weekly Checkoff View
-          habits.map((habit) => {
-            const streak = getHabitStreak(habit);
-            return (
-              <View key={habit.id} style={styles.habitCard}>
-                <View style={styles.habitHeader}>
-                  <View style={styles.habitTitleWrapper}>
-                    <View style={[styles.colorDot, { backgroundColor: CATEGORY_COLORS[habit.category] }]} />
-                    <Text style={styles.habitName} numberOfLines={1}>{habit.name}</Text>
-                  </View>
-                  <View style={styles.metaRow}>
-                    <View style={[styles.badge, { backgroundColor: `${CATEGORY_COLORS[habit.category]}33` }]}>
-                      <Text style={[styles.badgeText, { color: CATEGORY_COLORS[habit.category] }]}>{habit.category}</Text>
-                    </View>
-                    {streak > 0 && (
-                      <View style={styles.streakWrapper}>
-                        <Flame size={12} color={CATEGORY_COLORS[habit.category]} />
-                        <Text style={[styles.streakText, { color: CATEGORY_COLORS[habit.category] }]}>{streak}d</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                {/* Week Cells */}
-                <View style={styles.weeklyGrid}>
-                  {weekDates.map((date, idx) => {
-                    const dateStr = formatDateStr(date);
-                    const log = completions[habit.id]?.[dateStr] || { count: 0 };
-                    const isCompleted = habit.timesPerDay > 1 
-                      ? (log.slots?.filter(s => s).length || 0) === habit.timesPerDay
-                      : log.count > 0;
-                    
-                    const completedSlotsCount = log.slots?.filter(s => s).length || 0;
-
-                    return (
-                      <TouchableOpacity
-                        key={dateStr}
-                        style={[
-                          styles.dayCell,
-                          isCompleted && {
-                            borderColor: CATEGORY_COLORS[habit.category],
-                            backgroundColor: `${CATEGORY_COLORS[habit.category]}1c`,
-                          }
-                        ]}
-                        onPress={() => handleToggleCompletion(habit.id, dateStr)}
-                      >
-                        <Text style={styles.dayNumText}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'][idx === 0 ? 6 : idx - 1]}</Text>
-                        {habit.timesPerDay > 1 ? (
-                          <Text style={[styles.slotsRatioText, { color: CATEGORY_COLORS[habit.category] }]}>
-                            {completedSlotsCount}/{habit.timesPerDay}
-                          </Text>
-                        ) : (
-                          isCompleted && <Check size={12} color={CATEGORY_COLORS[habit.category]} strokeWidth={3} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+          <View style={{ flex: 1 }}>
+            {/* Search Bar & Categories are only loaded on the Weekly Grid view */}
+            <View style={styles.searchFilterContainer}>
+              <View style={styles.searchBox}>
+                <Search size={16} color={colors.textMuted} style={styles.searchIcon} />
+                <TextInput
+                  placeholder="Search habits..."
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery !== '' && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <X size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                )}
               </View>
-            );
-          })
-        ) : (
-          // Heatmap list (mocks contribution graph vertically)
-          <View>
-            <Text style={styles.heatmapOverviewTitle}>Contribution Heatmaps (6-Months)</Text>
-            {habits.map((habit) => {
-              const weeks = generateHeatmapWeeks(habit);
-              return (
-                <View key={habit.id} style={styles.heatmapCard}>
-                  <View style={styles.heatmapTitleBlock}>
-                    <Text style={styles.heatmapName}>{habit.name}</Text>
-                    <View style={[styles.badge, { backgroundColor: `${CATEGORY_COLORS[habit.category]}33` }]}>
-                      <Text style={[styles.badgeText, { color: CATEGORY_COLORS[habit.category] }]}>{habit.category}</Text>
-                    </View>
-                  </View>
 
-                  {/* Horizontal Scrollable Heatmap Weeks */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.heatmapRow}>
-                      {weeks.map((week, wIdx) => (
-                        <View key={wIdx} style={styles.heatmapCol}>
-                          {week.map((day) => {
-                            // Calculate colors matching the CSS color-mix logic
-                            const opacities = [0, 0.25, 0.5, 0.75, 1];
-                            const baseCol = CATEGORY_COLORS[habit.category];
-                            let cellBg = colors.border;
-                            
-                            if (day.intensity > 0) {
-                              // Mix color with background
-                              cellBg = baseCol; // React Native doesn't support css color-mix, we can use hex opacity instead
-                            }
+              {/* Horizontal Category Filters */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+                <TouchableOpacity
+                  style={[styles.categoryCapsule, selectedCategory === 'All' && styles.categoryCapsuleActive]}
+                  onPress={() => setSelectedCategory('All')}
+                >
+                  <Text style={[styles.categoryText, selectedCategory === 'All' && styles.categoryTextActive]}>All</Text>
+                </TouchableOpacity>
+                {CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[
+                      styles.categoryCapsule,
+                      selectedCategory === cat && { backgroundColor: `${CATEGORY_COLORS[cat]}25`, borderColor: CATEGORY_COLORS[cat] }
+                    ]}
+                    onPress={() => setSelectedCategory(cat)}
+                  >
+                    <View style={[styles.catDot, { backgroundColor: CATEGORY_COLORS[cat] }]} />
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        selectedCategory === cat && { color: CATEGORY_COLORS[cat], fontWeight: 'bold' }
+                      ]}
+                    >
+                      {cat}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-                            return (
-                              <View
-                                key={day.dateStr}
-                                style={[
-                                  styles.heatmapCell,
-                                  {
-                                    backgroundColor: day.isFuture ? 'transparent' : cellBg,
-                                    borderColor: day.isFuture ? colors.border : 'transparent',
-                                    opacity: day.isFuture ? 0.3 : opacities[day.intensity] || 1,
-                                  }
-                                ]}
-                              />
-                            );
-                          })}
+            {/* Weekly checklist grid */}
+            <ScrollView style={styles.viewContainer} contentContainerStyle={{ paddingBottom: 100 }}>
+              {/* Week Navigation controls */}
+              <View style={styles.weekNavRow}>
+                <TouchableOpacity onPress={() => setWeekOffset(prev => prev - 1)} style={styles.weekNavBtn}>
+                  <ChevronLeft size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+                <Text style={styles.weekLabelText}>
+                  {weekOffset === 0 ? 'This Week' : weekOffset === -1 ? 'Last Week' : `${weekOffset} Weeks Ago`}
+                </Text>
+                <TouchableOpacity onPress={() => setWeekOffset(prev => Math.min(0, prev + 1))} style={styles.weekNavBtn} disabled={weekOffset === 0}>
+                  <ChevronRight size={16} color={weekOffset === 0 ? colors.textMuted : colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {filteredHabits.length > 0 ? (
+                filteredHabits.map((habit) => {
+                  const streak = getHabitStreak(habit);
+                  return (
+                    <View key={habit.id} style={styles.habitCard}>
+                      <View style={styles.habitHeader}>
+                        <TouchableOpacity
+                          style={styles.habitTitleWrapper}
+                          onPress={() => setActiveDetailsHabit(habit)}
+                        >
+                          <View style={[styles.colorDot, { backgroundColor: CATEGORY_COLORS[habit.category] }]} />
+                          <Text style={styles.habitName} numberOfLines={1}>{habit.name}</Text>
+                          <Eye size={12} color={colors.textMuted} style={{ marginLeft: 4 }} />
+                        </TouchableOpacity>
+                        <View style={styles.metaRow}>
+                          <View style={[styles.badge, { backgroundColor: `${CATEGORY_COLORS[habit.category]}20`, borderColor: `${CATEGORY_COLORS[habit.category]}40`, borderWidth: 1 }]}>
+                            <Text style={[styles.badgeText, { color: CATEGORY_COLORS[habit.category] }]}>{habit.category}</Text>
+                          </View>
+                          {streak > 0 && (
+                            <View style={styles.streakWrapper}>
+                              <Flame size={12} color={CATEGORY_COLORS[habit.category]} />
+                              <Text style={[styles.streakText, { color: CATEGORY_COLORS[habit.category] }]}>{streak}d</Text>
+                            </View>
+                          )}
                         </View>
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </ScrollView>
+                      </View>
 
-      {/* Footer / Info & Sign Out */}
+                      {/* Week Cells */}
+                      <View style={styles.weeklyGrid}>
+                        {weekDates.map((date, idx) => {
+                          const dateStr = formatDateStr(date);
+                          const log = completions[habit.id]?.[dateStr] || { count: 0 };
+                          const isCompleted = habit.timesPerDay > 1 
+                            ? (log.slots?.filter(s => s).length || 0) === habit.timesPerDay
+                            : log.count > 0;
+                          
+                          const completedSlotsCount = log.slots?.filter(s => s).length || 0;
+
+                          return (
+                            <TouchableOpacity
+                              key={dateStr}
+                              style={[
+                                styles.dayCell,
+                                isCompleted && {
+                                  borderColor: CATEGORY_COLORS[habit.category],
+                                  backgroundColor: `${CATEGORY_COLORS[habit.category]}1c`,
+                                }
+                              ]}
+                              onPress={() => {
+                                if (habit.timesPerDay > 1) {
+                                  setSlotCheckoffTarget({ habit, dateStr });
+                                } else {
+                                  handleToggleCompletion(habit.id, dateStr);
+                                }
+                              }}
+                            >
+                              <Text style={styles.dayNumText}>{['M', 'T', 'W', 'T', 'F', 'S', 'S'][idx === 0 ? 6 : idx - 1]}</Text>
+                              {habit.timesPerDay > 1 ? (
+                                <Text style={[styles.slotsRatioText, { color: CATEGORY_COLORS[habit.category] }]}>
+                                  {completedSlotsCount}/{habit.timesPerDay}
+                                </Text>
+                              ) : (
+                                isCompleted && <Check size={12} color={CATEGORY_COLORS[habit.category]} strokeWidth={3} />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Text style={{ color: colors.textMuted, fontSize: 14 }}>No habits found matching filters.</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* FAB button to create habit - ONLY on Weekly Grid */}
+            <TouchableOpacity style={styles.fab} onPress={() => { resetForm(); setShowAddModal(true); }}>
+              <Plus size={24} color="#18181b" strokeWidth={3} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Heatmap list: shows vertical lists of heatmaps directly on screen */
+          <ScrollView style={styles.viewContainer} contentContainerStyle={{ paddingBottom: 100 }}>
+            <View style={styles.heatmapHeaderBox}>
+              <Text style={styles.heatmapOverviewTitle}>Contribution Heatmaps</Text>
+              <Text style={{ fontSize: 11, color: colors.textMuted, marginHorizontal: 16, marginTop: 4 }}>
+                GitHub-style grid showing your last 20 weeks of activity.
+              </Text>
+            </View>
+
+            {habits.length > 0 ? (
+              habits.map((habit) => {
+                const weeks = generateHeatmapWeeks(habit);
+                const streak = getHabitStreak(habit);
+                return (
+                  <View key={habit.id} style={styles.heatmapCard}>
+                    <TouchableOpacity
+                      style={styles.heatmapTitleBlock}
+                      onPress={() => setActiveDetailsHabit(habit)}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.colorDot, { backgroundColor: CATEGORY_COLORS[habit.category] }]} />
+                        <Text style={styles.heatmapName}>{habit.name}</Text>
+                        <Eye size={12} color={colors.textMuted} />
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                        <View style={[styles.badge, { backgroundColor: `${CATEGORY_COLORS[habit.category]}20`, borderColor: `${CATEGORY_COLORS[habit.category]}40`, borderWidth: 1 }]}>
+                          <Text style={[styles.badgeText, { color: CATEGORY_COLORS[habit.category] }]}>{habit.category}</Text>
+                        </View>
+                        {streak > 0 && (
+                          <View style={styles.streakWrapper}>
+                            <Flame size={12} color={CATEGORY_COLORS[habit.category]} />
+                            <Text style={[styles.streakText, { color: CATEGORY_COLORS[habit.category] }]}>{streak}d</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Scrollable Heatmap grid */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.heatmapRow}>
+                        {weeks.map((week, wIdx) => (
+                          <View key={wIdx} style={styles.heatmapCol}>
+                            {week.map((day) => {
+                              const opacities = [0.1, 0.35, 0.6, 0.8, 1];
+                              const baseCol = CATEGORY_COLORS[habit.category];
+                              let cellBg = colors.border;
+                              
+                              if (day.intensity > 0) {
+                                cellBg = baseCol;
+                              }
+
+                              return (
+                                <View
+                                  key={day.dateStr}
+                                  style={[
+                                    styles.heatmapCell,
+                                    {
+                                      backgroundColor: day.isFuture ? 'transparent' : cellBg,
+                                      borderColor: day.isFuture ? colors.border : 'transparent',
+                                      opacity: day.isFuture ? 0.2 : opacities[day.intensity] || 1,
+                                    }
+                                  ]}
+                                />
+                              );
+                            })}
+                          </View>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={{ color: colors.textMuted, fontSize: 14 }}>Create a habit to view its heatmap grid.</Text>
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* Footer info & sign out */}
       <View style={styles.footerActions}>
         <View style={{ flexDirection: 'column' }}>
-          <Text style={{ fontSize: 10, color: colors.textMuted }}>PERSISTENCE</Text>
-          <Text style={{ fontSize: 12, fontWeight: 'bold', color: colors.textPrimary }}>
-            {session ? session.user.email : 'Local Storage'}
+          <Text style={{ fontSize: 9, fontWeight: 'bold', color: colors.textMuted }}>PERSISTENCE SOURCE</Text>
+          <Text style={{ fontSize: 11, fontWeight: 'bold', color: colors.textPrimary }}>
+            {session ? session.user.email : 'Guest Mode (Offline)'}
           </Text>
         </View>
         <TouchableOpacity style={styles.footerBtn} onPress={handleSignOut}>
           <LogOut size={12} color={colors.textSecondary} />
-          <Text style={styles.footerBtnText}>{session ? 'Sign Out' : 'Sign In'}</Text>
+          <Text style={styles.footerBtnText}>{session ? 'Sign Out' : 'Connect Cloud'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal 1: Habit Form (Add / Edit) */}
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalWrapper}
+          >
+            <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {/* Modal Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  {editingHabitId ? 'Edit Habit' : 'New Habit'}
+                </Text>
+                <TouchableOpacity onPress={() => setShowAddModal(false)} style={styles.closeBtn}>
+                  <X size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={{ padding: 18 }}>
+                {/* Habit Name Input */}
+                <View style={styles.formGroup}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Habit Name</Text>
+                  <TextInput
+                    style={[styles.formInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
+                    placeholder="e.g. Code for 2 hours"
+                    placeholderTextColor={colors.textMuted}
+                    value={habitName}
+                    onChangeText={setHabitName}
+                  />
+                </View>
+
+                {/* Category Selection */}
+                <View style={styles.formGroup}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Category</Text>
+                  <View style={styles.categoryBadgeRow}>
+                    {CATEGORIES.map(cat => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={[
+                          styles.catBadgeItem,
+                          habitCategory === cat && { backgroundColor: `${CATEGORY_COLORS[cat]}25`, borderColor: CATEGORY_COLORS[cat], borderWidth: 1 }
+                        ]}
+                        onPress={() => handleCategoryChange(cat)}
+                      >
+                        <View style={[styles.catDot, { backgroundColor: CATEGORY_COLORS[cat] }]} />
+                        <Text style={[styles.catBadgeText, { color: habitCategory === cat ? CATEGORY_COLORS[cat] : colors.textSecondary }]}>
+                          {cat}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Times Per Day (Multi-Slot selector) */}
+                <View style={styles.formGroup}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Goal Frequency per Day</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                    <TouchableOpacity
+                      onPress={() => handleTimesPerDayChange(habitTimesPerDay - 1)}
+                      style={[styles.slotCounterBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                    >
+                      <Minus size={16} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary }}>
+                      {habitTimesPerDay} check-in{habitTimesPerDay > 1 ? 's' : ''} per day
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleTimesPerDayChange(habitTimesPerDay + 1)}
+                      style={[styles.slotCounterBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                    >
+                      <Plus size={16} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Slot customization inputs if > 1 times per day */}
+                  {habitTimesPerDay > 1 && (
+                    <View style={styles.slotsInputSection}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8, fontWeight: 'bold' }}>
+                        CUSTOMIZE SLOT NAMES:
+                      </Text>
+                      {Array.from({ length: habitTimesPerDay }).map((_, idx) => (
+                        <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <Text style={{ fontSize: 12, color: colors.textMuted, width: 50 }}>Slot {idx + 1}</Text>
+                          <TextInput
+                            style={[
+                              styles.slotNameInput,
+                              { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }
+                            ]}
+                            value={habitSlotNames[idx] || `Slot ${idx + 1}`}
+                            onChangeText={(text) => handleSlotNameChange(idx, text)}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Frequency Type */}
+                <View style={styles.formGroup}>
+                  <Text style={[styles.formLabel, { color: colors.textSecondary }]}>Frequency Type</Text>
+                  <View style={styles.freqTabRow}>
+                    {(['daily', 'weekly', 'interval'] as FrequencyType[]).map(type => (
+                      <TouchableOpacity
+                        key={type}
+                        style={[
+                          styles.freqTab,
+                          habitFreqType === type && { backgroundColor: colors.border }
+                        ]}
+                        onPress={() => setHabitFreqType(type)}
+                      >
+                        <Text style={[styles.freqTabText, { color: habitFreqType === type ? colors.accent : colors.textSecondary }]}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Weekly days checkboxes */}
+                  {habitFreqType === 'weekly' && (
+                    <View style={{ marginTop: 12 }}>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 8, fontWeight: 'bold' }}>
+                        SELECT ACTIVE DAYS:
+                      </Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 4 }}>
+                        {DAYS_OF_WEEK_LABELS.map((label, idx) => {
+                          const active = habitDaysOfWeek.includes(idx);
+                          return (
+                            <TouchableOpacity
+                              key={label}
+                              style={[
+                                styles.dayCheckbox,
+                                { borderColor: colors.border },
+                                active && { backgroundColor: colors.accent, borderColor: colors.accent }
+                              ]}
+                              onPress={() => toggleDayOfWeek(idx)}
+                            >
+                              <Text style={{ fontSize: 10, fontWeight: 'bold', color: active ? '#18181b' : colors.textSecondary }}>
+                                {label.charAt(0)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Interval input */}
+                  {habitFreqType === 'interval' && (
+                    <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>Repeat every</Text>
+                      <TextInput
+                        style={[
+                          styles.numInput,
+                          { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }
+                        ]}
+                        keyboardType="numeric"
+                        value={String(habitIntervalDays)}
+                        onChangeText={(t) => setHabitIntervalDays(Number(t) || 1)}
+                      />
+                      <Text style={{ fontSize: 13, color: colors.textSecondary }}>days</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Reminder toggle */}
+                <View style={styles.formGroup}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}
+                    onPress={() => setHasReminder(!hasReminder)}
+                  >
+                    <View style={[styles.checkboxBox, { borderColor: colors.border }, hasReminder && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                      {hasReminder && <Check size={12} color="#18181b" strokeWidth={3} />}
+                    </View>
+                    <Text style={{ fontSize: 13, color: colors.textPrimary, fontWeight: 'bold' }}>Set Daily Reminder Time</Text>
+                  </TouchableOpacity>
+
+                  {hasReminder && (
+                    <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Clock size={16} color={colors.textSecondary} />
+                      <TextInput
+                        style={[
+                          styles.slotNameInput,
+                          { width: 100, backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }
+                        ]}
+                        placeholder="14:00"
+                        placeholderTextColor={colors.textMuted}
+                        value={habitReminder}
+                        onChangeText={setHabitReminder}
+                      />
+                    </View>
+                  )}
+                </View>
+
+                <View style={{ height: 40 }} />
+              </ScrollView>
+
+              {/* Form Footer */}
+              <View style={[styles.modalFooter, { borderTopColor: colors.border }]}>
+                <TouchableOpacity style={[styles.footerCancelBtn, { borderColor: colors.border }]} onPress={() => setShowAddModal(false)}>
+                  <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.footerSaveBtn, { backgroundColor: colors.accent }]} onPress={handleSaveHabit}>
+                  <Text style={{ color: '#18181b', fontWeight: 'bold' }}>Save Habit</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Modal 2: Habit Details & Management */}
+      <Modal
+        visible={activeDetailsHabit !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setActiveDetailsHabit(null)}
+      >
+        <View style={styles.modalOverlay}>
+          {activeDetailsHabit && (
+            <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border, maxWidth: 360 }]}>
+              {/* Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                  <View style={[styles.colorDot, { backgroundColor: CATEGORY_COLORS[activeDetailsHabit.category] }]} />
+                  <Text style={[styles.modalTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {activeDetailsHabit.name}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveDetailsHabit(null)} style={styles.closeBtn}>
+                  <X size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 18, gap: 16 }}>
+                {/* Category tag */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: 'bold' }}>CATEGORY</Text>
+                  <View style={[styles.badge, { backgroundColor: `${CATEGORY_COLORS[activeDetailsHabit.category]}25`, borderColor: CATEGORY_COLORS[activeDetailsHabit.category], borderWidth: 1 }]}>
+                    <Text style={{ color: CATEGORY_COLORS[activeDetailsHabit.category], fontSize: 11, fontWeight: 'bold' }}>
+                      {activeDetailsHabit.category}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Stats */}
+                <View style={styles.statsCardGrid}>
+                  <View style={[styles.statCardBlock, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                    <Flame size={18} color={CATEGORY_COLORS[activeDetailsHabit.category]} />
+                    <Text style={[styles.statCardVal, { color: colors.textPrimary }]}>
+                      {getHabitStreak(activeDetailsHabit)}d
+                    </Text>
+                    <Text style={{ fontSize: 10, color: colors.textSecondary }}>Current Streak</Text>
+                  </View>
+
+                  <View style={[styles.statCardBlock, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                    <Text style={[styles.statCardVal, { color: colors.textPrimary, fontSize: 18 }]}>
+                      {getHabitTotalChecks(activeDetailsHabit)}
+                    </Text>
+                    <Text style={{ fontSize: 10, color: colors.textSecondary }}>Total Check-ins</Text>
+                  </View>
+                </View>
+
+                {/* Frequency configuration info */}
+                <View style={[styles.infoSectionRow, { borderBottomColor: colors.border }]}>
+                  <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: 'bold' }}>FREQUENCY</Text>
+                  <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                    {activeDetailsHabit.frequency.type === 'daily'
+                      ? 'Everyday'
+                      : activeDetailsHabit.frequency.type === 'weekly'
+                      ? 'Specific days weekly'
+                      : `Every ${activeDetailsHabit.frequency.intervalDays} days`}
+                  </Text>
+                </View>
+
+                {/* Reminder info */}
+                {activeDetailsHabit.reminderTime && (
+                  <View style={[styles.infoSectionRow, { borderBottomColor: colors.border }]}>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: 'bold' }}>REMINDER</Text>
+                    <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                      {activeDetailsHabit.reminderTime} daily
+                    </Text>
+                  </View>
+                )}
+
+                {/* Slots details if multi-slot */}
+                {activeDetailsHabit.timesPerDay > 1 && (
+                  <View>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, fontWeight: 'bold', marginBottom: 6 }}>
+                      COMPLETION SLOTS ({activeDetailsHabit.timesPerDay})
+                    </Text>
+                    {activeDetailsHabit.slotNames?.map((slot, idx) => (
+                      <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: CATEGORY_COLORS[activeDetailsHabit.category] }} />
+                        <Text style={{ fontSize: 13, color: colors.textPrimary }}>{slot}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Action buttons */}
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                  <TouchableOpacity
+                    style={[styles.detailsActionBtn, { flex: 1, borderColor: colors.border }]}
+                    onPress={() => handleEditHabit(activeDetailsHabit)}
+                  >
+                    <Edit size={14} color={colors.textSecondary} />
+                    <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '600' }}>Edit Habit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.detailsActionBtn, { borderColor: '#f8717140', backgroundColor: '#f8717112' }]}
+                    onPress={() => handleDeleteHabit(activeDetailsHabit.id)}
+                  >
+                    <Trash2 size={14} color="#f87171" />
+                    <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600' }}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
+
+      {/* Modal 3: Slot Checkoff Overlay */}
+      <Modal
+        visible={slotCheckoffTarget !== null}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setSlotCheckoffTarget(null)}
+      >
+        <View style={styles.modalOverlay}>
+          {slotCheckoffTarget && (
+            <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
+              {/* Header */}
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: colors.accent, fontWeight: 'bold' }}>CHECK OFF SLOTS</Text>
+                  <Text style={[styles.modalTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                    {slotCheckoffTarget.habit.name}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setSlotCheckoffTarget(null)} style={styles.closeBtn}>
+                  <X size={18} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ padding: 18 }}>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>
+                  Date: {slotCheckoffTarget.dateStr}
+                </Text>
+
+                {/* Slots Rows */}
+                {Array.from({ length: slotCheckoffTarget.habit.timesPerDay }).map((_, slotIdx) => {
+                  const slotName = slotCheckoffTarget.habit.slotNames?.[slotIdx] || `Slot ${slotIdx + 1}`;
+                  const isChecked = completions[slotCheckoffTarget.habit.id]?.[slotCheckoffTarget.dateStr]?.slots?.[slotIdx] ?? false;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={slotIdx}
+                      style={[
+                        styles.slotCheckoffRow,
+                        { borderColor: colors.border },
+                        isChecked && { backgroundColor: `${CATEGORY_COLORS[slotCheckoffTarget.habit.category]}10` }
+                      ]}
+                      onPress={() => handleToggleCompletion(slotCheckoffTarget.habit.id, slotCheckoffTarget.dateStr, slotIdx)}
+                    >
+                      <Text style={[styles.slotRowName, { color: isChecked ? CATEGORY_COLORS[slotCheckoffTarget.habit.category] : colors.textPrimary }]}>
+                        {slotName}
+                      </Text>
+                      <View
+                        style={[
+                          styles.checkboxBox,
+                          { borderColor: colors.border },
+                          isChecked && { backgroundColor: CATEGORY_COLORS[slotCheckoffTarget.habit.category], borderColor: CATEGORY_COLORS[slotCheckoffTarget.habit.category] }
+                        ]}
+                      >
+                        {isChecked && <Check size={12} color="#18181b" strokeWidth={3} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={[styles.doneBtn, { backgroundColor: colors.accent }]}
+                  onPress={() => setSlotCheckoffTarget(null)}
+                >
+                  <Text style={{ fontWeight: 'bold', color: '#18181b' }}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#09090b',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#f4f4f5',
+    letterSpacing: -0.5,
+  },
+  themeBtn: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    backgroundColor: '#18181b',
+  },
+  authContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  authCard: {
+    width: '100%',
+    maxWidth: 360,
+    padding: 24,
+    borderRadius: 16,
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+    gap: 16,
+  },
+  authTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#27272a',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 4,
+  },
+  authTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  authTabActive: {
+    backgroundColor: '#3f3f46',
+  },
+  authTabText: {
+    color: '#a1a1aa',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  authTabTextActive: {
+    color: '#d8c3a5',
+  },
+  inputWrapper: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#a1a1aa',
+  },
+  input: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#3f3f46',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    color: '#f4f4f5',
+    backgroundColor: '#27272a',
+    fontSize: 14,
+  },
+  authBtn: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#d8c3a5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  authBtnText: {
+    color: '#18181b',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  orText: {
+    textAlign: 'center',
+    color: '#71717a',
+    fontSize: 12,
+    marginVertical: 4,
+  },
+  offlineBtn: {
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  offlineBtnText: {
+    color: '#a1a1aa',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  navigationRow: {
+    flexDirection: 'row',
+    backgroundColor: '#18181b',
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+    paddingHorizontal: 16,
+  },
+  navTab: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderBottomWidth: 2.5,
+    borderBottomColor: 'transparent',
+  },
+  navTabActive: {
+    borderBottomColor: '#d8c3a5',
+  },
+  navTabText: {
+    fontSize: 14,
+    color: '#a1a1aa',
+    fontWeight: '700',
+  },
+  navTabTextActive: {
+    color: '#f4f4f5',
+  },
+  viewContainer: {
+    flex: 1,
+  },
+  searchFilterContainer: {
+    padding: 16,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18181b',
+    borderColor: '#27272a',
+    borderWidth: 1,
+    borderRadius: 8,
+    height: 40,
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#f4f4f5',
+    fontSize: 14,
+    padding: 0,
+  },
+  categoryScroll: {
+    flexGrow: 0,
+  },
+  categoryCapsule: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    marginRight: 8,
+  },
+  categoryCapsuleActive: {
+    backgroundColor: '#27272a',
+    borderColor: '#d8c3a5',
+  },
+  categoryText: {
+    fontSize: 12,
+    color: '#a1a1aa',
+  },
+  categoryTextActive: {
+    color: '#d8c3a5',
+    fontWeight: 'bold',
+  },
+  catDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  weekNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  weekNavBtn: {
+    padding: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    backgroundColor: '#18181b',
+  },
+  weekLabelText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#f4f4f5',
+  },
+  habitCard: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    gap: 12,
+  },
+  habitHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  habitTitleWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  colorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  habitName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f4f4f5',
+    maxWidth: '85%',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  streakWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  streakText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  weeklyGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginTop: 4,
+  },
+  dayCell: {
+    flex: 1,
+    aspectRatio: 0.9,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#27272a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingVertical: 4,
+  },
+  dayNumText: {
+    fontSize: 9,
+    color: '#71717a',
+    marginBottom: 2,
+    fontWeight: 'bold',
+  },
+  slotsRatioText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  heatmapHeaderBox: {
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  heatmapOverviewTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#f4f4f5',
+    marginHorizontal: 16,
+  },
+  heatmapCard: {
+    backgroundColor: '#18181b',
+    borderWidth: 1,
+    borderColor: '#27272a',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    gap: 12,
+  },
+  heatmapTitleBlock: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heatmapName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f4f4f5',
+  },
+  heatmapRow: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  heatmapCol: {
+    gap: 3,
+  },
+  heatmapCell: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    borderWidth: 0.5,
+  },
+  footerActions: {
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
+    backgroundColor: '#18181b',
+    alignItems: 'center',
+  },
+  footerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    backgroundColor: '#09090b',
+  },
+  footerBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#a1a1aa',
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 80,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#d8c3a5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 64,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(9, 9, 11, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalWrapper: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '100%',
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  formInput: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  categoryBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  catBadgeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#27272a',
+    backgroundColor: '#18181b',
+  },
+  catBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  slotCounterBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  slotsInputSection: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#09090b',
+    borderRadius: 8,
+  },
+  slotNameInput: {
+    flex: 1,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    fontSize: 13,
+  },
+  freqTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#18181b',
+    borderRadius: 8,
+    padding: 3,
+  },
+  freqTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  freqTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  dayCheckbox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  numInput: {
+    width: 60,
+    height: 36,
+    borderWidth: 1,
+    borderRadius: 6,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  checkboxBox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    padding: 16,
+    borderTopWidth: 1,
+    backgroundColor: 'rgba(9, 9, 11, 0.2)',
+  },
+  footerCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  footerSaveBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsCardGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statCardBlock: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  statCardVal: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  infoSectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  detailsActionBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  slotCheckoffRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  slotRowName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  doneBtn: {
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+  }
+});
