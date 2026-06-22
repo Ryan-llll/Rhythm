@@ -5,7 +5,7 @@ import { HabitDetails } from './components/HabitDetails';
 import { HabitForm } from './components/HabitForm';
 import { 
   Plus, Search, Download, Upload, Calendar, 
-  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut 
+  CheckSquare, Sparkles, ChevronLeft, ChevronRight, Trash2, LogOut, Flame
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
@@ -27,6 +27,9 @@ export default function App() {
   // 2. Habits and Completions State
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<CompletionLog>({});
+  
+  // Dashboard view mode
+  const [viewMode, setViewMode] = useState<'weekly' | 'heatmaps'>('weekly');
 
   // Filters & Offsets
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>('All');
@@ -131,7 +134,157 @@ export default function App() {
 
   const weekDates = getWeekDates(weekOffset);
 
-  // 6. Calculations for Sidebar Statistics
+  // 6. Quick streak finder per habit
+  const getHabitStreak = (habit: Habit): number => {
+    const todayStr = formatDateStr(new Date());
+    let currentStreak = 0;
+    let checkDate = new Date();
+    const habitCompletions = completions[habit.id] || {};
+
+    const isCompleted = (dStr: string): boolean => {
+      const comp = habitCompletions[dStr];
+      if (!comp) return false;
+      if (habit.timesPerDay > 1) return comp.slots?.every(s => s) ?? false;
+      return comp.count > 0;
+    };
+
+    const isHabitDue = (date: Date): boolean => {
+      const dayOfWeek = date.getDay();
+      const dStr = formatDateStr(date);
+      if (dStr < habit.createdAt) return false;
+      if (habit.frequency.type === 'daily') return true;
+      if (habit.frequency.type === 'weekly') return habit.frequency.daysOfWeek?.includes(dayOfWeek) ?? false;
+      if (habit.frequency.type === 'interval') {
+        const created = new Date(habit.createdAt + 'T00:00:00');
+        const current = new Date(dStr + 'T00:00:00');
+        const diffTime = Math.abs(current.getTime() - created.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays % (habit.frequency.intervalDays || 1) === 0;
+      }
+      return true;
+    };
+
+    let startFromToday = isCompleted(todayStr) || !isHabitDue(checkDate);
+    if (!startFromToday) {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = formatDateStr(yesterday);
+      if (isHabitDue(yesterday) && !isCompleted(yesterdayStr)) {
+        return 0;
+      }
+      let checkPrev = new Date(yesterday);
+      let foundDueAndUncompleted = false;
+      for (let i = 0; i < 30; i++) {
+        if (isHabitDue(checkPrev)) {
+          const checkPrevStr = formatDateStr(checkPrev);
+          if (!isCompleted(checkPrevStr)) foundDueAndUncompleted = true;
+          break;
+        }
+        checkPrev.setDate(checkPrev.getDate() - 1);
+      }
+      if (foundDueAndUncompleted) return 0;
+    }
+
+    let safeCount = 0;
+    while (safeCount < 365) {
+      const dStr = formatDateStr(checkDate);
+      if (dStr < habit.createdAt) break;
+      if (isHabitDue(checkDate)) {
+        if (isCompleted(dStr)) {
+          currentStreak++;
+        } else {
+          if (dStr !== todayStr) break;
+        }
+      }
+      checkDate.setDate(checkDate.getDate() - 1);
+      safeCount++;
+    }
+    return currentStreak;
+  };
+
+  // Helper to fetch total completions for a specific habit
+  const getHabitTotalChecks = (habit: Habit): number => {
+    let total = 0;
+    const habitComps = completions[habit.id] || {};
+    Object.values(habitComps).forEach((comp) => {
+      if (habit.timesPerDay > 1) {
+        total += comp.slots?.filter((s) => s).length || 0;
+      } else {
+        total += comp.count || 0;
+      }
+    });
+    return total;
+  };
+
+  // Generate 6-Month Heatmap grid cells for a habit
+  const generateHeatmapDataForOverview = (habit: Habit) => {
+    const today = new Date();
+    const weeks = 26; // 6 months
+    const days = [];
+    const habitCompletions = completions[habit.id] || {};
+    
+    // Find Sunday of 26 weeks ago
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - weeks * 7);
+    const startDay = startDate.getDay();
+    startDate.setDate(startDate.getDate() - startDay); // Align to Sunday
+    startDate.setHours(0, 0, 0, 0);
+
+    const totalDays = weeks * 7 + (today.getDay() + 1);
+    const cursor = new Date(startDate);
+    
+    for (let i = 0; i < totalDays; i++) {
+      const dStr = formatDateStr(cursor);
+      const log = habitCompletions[dStr] || { count: 0 };
+      
+      let intensity = 0; // 0 to 4 scale
+      let label = '0 completions';
+
+      if (habit.timesPerDay > 1) {
+        const checkedCount = log.slots?.filter(s => s).length || 0;
+        if (checkedCount > 0) {
+          const ratio = checkedCount / habit.timesPerDay;
+          if (ratio <= 0.25) intensity = 1;
+          else if (ratio <= 0.5) intensity = 2;
+          else if (ratio <= 0.75) intensity = 3;
+          else intensity = 4;
+          label = `${checkedCount}/${habit.timesPerDay} slots`;
+        }
+      } else {
+        const count = log.count;
+        if (count > 0) {
+          if (count === 1) intensity = 1;
+          else if (count === 2) intensity = 2;
+          else if (count === 3) intensity = 3;
+          else intensity = 4;
+          label = `${count} completion${count > 1 ? 's' : ''}`;
+        }
+      }
+
+      days.push({
+        dateStr: dStr,
+        intensity,
+        label: `${dStr}: ${label}`,
+        isFuture: cursor > today,
+      });
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    const heatmapWeeks = [];
+    for (let i = 0; i < days.length; i += 7) {
+      heatmapWeeks.push(days.slice(i, i + 7));
+    }
+    return heatmapWeeks;
+  };
+
+  const getCellColorForOverview = (colorHex: string, intensity: number) => {
+    if (intensity === 0) return 'var(--card-border)';
+    const opacities = [0, 0.25, 0.5, 0.75, 1];
+    return `${colorHex}${Math.floor(opacities[intensity] * 255).toString(16).padStart(2, '0')}`;
+  };
+
+  // Calculations for Sidebar Statistics
   const calculateStats = () => {
     let totalChecks = 0;
     
@@ -184,77 +337,7 @@ export default function App() {
     });
 
     const weeklyRate = totalScheduledSlots > 0 ? Math.round((completedScheduledSlots / totalScheduledSlots) * 100) : 0;
-
-    // Longest Streak across all habits
     let longestStreak = 0;
-    
-    // Quick streak finder per habit
-    const getHabitStreak = (habit: Habit): number => {
-      const todayStr = formatDateStr(new Date());
-      let currentStreak = 0;
-      let checkDate = new Date();
-      const habitCompletions = completions[habit.id] || {};
-
-      const isCompleted = (dStr: string): boolean => {
-        const comp = habitCompletions[dStr];
-        if (!comp) return false;
-        if (habit.timesPerDay > 1) return comp.slots?.every(s => s) ?? false;
-        return comp.count > 0;
-      };
-
-      const isHabitDue = (date: Date): boolean => {
-        const dayOfWeek = date.getDay();
-        const dStr = formatDateStr(date);
-        if (dStr < habit.createdAt) return false;
-        if (habit.frequency.type === 'daily') return true;
-        if (habit.frequency.type === 'weekly') return habit.frequency.daysOfWeek?.includes(dayOfWeek) ?? false;
-        if (habit.frequency.type === 'interval') {
-          const created = new Date(habit.createdAt + 'T00:00:00');
-          const current = new Date(dStr + 'T00:00:00');
-          const diffTime = Math.abs(current.getTime() - created.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays % (habit.frequency.intervalDays || 1) === 0;
-        }
-        return true;
-      };
-
-      let startFromToday = isCompleted(todayStr) || !isHabitDue(checkDate);
-      if (!startFromToday) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = formatDateStr(yesterday);
-        if (isHabitDue(yesterday) && !isCompleted(yesterdayStr)) {
-          return 0;
-        }
-        let checkPrev = new Date(yesterday);
-        let foundDueAndUncompleted = false;
-        for (let i = 0; i < 30; i++) {
-          if (isHabitDue(checkPrev)) {
-            const checkPrevStr = formatDateStr(checkPrev);
-            if (!isCompleted(checkPrevStr)) foundDueAndUncompleted = true;
-            break;
-          }
-          checkPrev.setDate(checkPrev.getDate() - 1);
-        }
-        if (foundDueAndUncompleted) return 0;
-      }
-
-      let safeCount = 0;
-      while (safeCount < 365) {
-        const dStr = formatDateStr(checkDate);
-        if (dStr < habit.createdAt) break;
-        if (isHabitDue(checkDate)) {
-          if (isCompleted(dStr)) {
-            currentStreak++;
-          } else {
-            if (dStr !== todayStr) break;
-          }
-        }
-        checkDate.setDate(checkDate.getDate() - 1);
-        safeCount++;
-      }
-      return currentStreak;
-    };
 
     habits.forEach((habit) => {
       const streak = getHabitStreak(habit);
@@ -280,7 +363,6 @@ export default function App() {
     let updated: HabitCompletion;
 
     if (habit.timesPerDay > 1) {
-      // Multi-slot
       const slots = [...(current.slots || Array(habit.timesPerDay).fill(false))];
       if (slotIndex !== undefined) {
         slots[slotIndex] = !slots[slotIndex];
@@ -288,12 +370,10 @@ export default function App() {
       const count = slots.filter(s => s).length;
       updated = { count, slots };
     } else {
-      // Single slot toggle (0 or 1)
       const count = current.count > 0 ? 0 : 1;
       updated = { count };
     }
 
-    // Sync to Supabase via upsert
     const { error } = await supabase
       .from('completions')
       .upsert({
@@ -310,7 +390,6 @@ export default function App() {
       return;
     }
 
-    // Update locally
     setCompletions((prev) => {
       const newComps = { ...prev };
       newComps[habitId] = {
@@ -413,7 +492,6 @@ export default function App() {
 
         if (error) throw error;
 
-        // Update locally
         setHabits((prev) =>
           prev.map((h) =>
             h.id === habitData.id
@@ -540,10 +618,8 @@ export default function App() {
       try {
         const parsed = JSON.parse(event.target?.result as string);
         if (parsed.habits && parsed.completions) {
-          // Confirm overwrite
           if (!window.confirm("Importing a backup will merge and update your habits in the cloud. Do you want to proceed?")) return;
 
-          // 1. Upload Habits
           const habitsToImport = parsed.habits as Habit[];
           for (const h of habitsToImport) {
             await supabase
@@ -564,7 +640,6 @@ export default function App() {
               });
           }
 
-          // 2. Upload Completions
           const completionsToImport = parsed.completions as CompletionLog;
           for (const [habitId, logObj] of Object.entries(completionsToImport)) {
             for (const [dateStr, compObj] of Object.entries(logObj)) {
@@ -580,7 +655,6 @@ export default function App() {
             }
           }
 
-          // Force refetch from cloud by resetting session reference
           setSession({ ...session });
           alert("Backup successfully synced to your cloud database!");
         } else {
@@ -614,7 +688,6 @@ export default function App() {
     return `${first.toLocaleDateString('en-US', options)} - ${last.toLocaleDateString('en-US', options)}, ${last.getFullYear()}`;
   };
 
-  // 12. Show loading spinner during initial session check
   if (loadingSession) {
     return (
       <div className="app-loading-screen">
@@ -646,7 +719,6 @@ export default function App() {
     );
   }
 
-  // 13. Lock UI to Auth screen if no active session
   if (!session) {
     return <Auth />;
   }
@@ -669,6 +741,27 @@ export default function App() {
             <span className="user-email-label" title={session.user.email}>
               {session.user.email}
             </span>
+          </div>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="sidebar-section">
+          <h3 className="section-label">View Mode</h3>
+          <div className="tab-control">
+            <button
+              type="button"
+              className={`tab-btn ${viewMode === 'weekly' ? 'active' : ''}`}
+              onClick={() => setViewMode('weekly')}
+            >
+              Weekly Grid
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${viewMode === 'heatmaps' ? 'active' : ''}`}
+              onClick={() => setViewMode('heatmaps')}
+            >
+              Heatmaps
+            </button>
           </div>
         </div>
 
@@ -789,69 +882,147 @@ export default function App() {
           </button>
         </header>
 
-        {/* Week navigation controller */}
-        <div className="week-controller-bar">
-          <div className="week-range-title">
-            <Calendar size={18} className="calendar-icon" />
-            <h3 className="font-mono">{getWeekDatesHeaderString()}</h3>
-          </div>
-          <div className="week-nav-actions">
-            <button className="btn btn-secondary nav-btn" onClick={() => setWeekOffset(prev => prev - 1)}>
-              <ChevronLeft size={16} />
-            </button>
-            <button 
-              className={`btn btn-secondary today-btn ${weekOffset === 0 ? 'active' : ''}`} 
-              onClick={() => setWeekOffset(0)}
-            >
-              Today
-            </button>
-            <button className="btn btn-secondary nav-btn" onClick={() => setWeekOffset(prev => prev + 1)}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* Grid Header containing weekdays alignment */}
-        <div className="dashboard-grid-header">
-          <div className="habit-header-col">Habits</div>
-          <div className="days-header-grid">
-            {weekDates.map((date) => {
-              const dateStr = formatDateStr(date);
-              const isToday = formatDateStr(new Date()) === dateStr;
-              const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-              return (
-                <div key={dateStr} className={`day-header-cell ${isToday ? 'today-highlight' : ''}`}>
-                  <span className="day-name">{weekdays[date.getDay()]}</span>
-                  <span className="day-number font-mono">{date.getDate()}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Habits Cards Row Grid list */}
-        <div className="habits-list-container">
-          {filteredHabits.length > 0 ? (
-            filteredHabits.map((habit) => (
-              <HabitCard
-                key={habit.id}
-                habit={habit}
-                weekDates={weekDates}
-                completions={completions}
-                onToggleCompletion={handleToggleCompletion}
-                onIncrementCompletion={handleIncrementCompletion}
-                onDecrementCompletion={handleDecrementCompletion}
-                onOpenDetails={setActiveDetailsHabit}
-              />
-            ))
-          ) : (
-            <div className="empty-state">
-              <CheckSquare size={48} className="empty-icon" />
-              <h3>No habits found</h3>
-              <p>Create a habit or adjust your search filters to get started.</p>
+        {/* Week navigation controller (only visible in Weekly Grid mode) */}
+        {viewMode === 'weekly' && (
+          <div className="week-controller-bar">
+            <div className="week-range-title">
+              <Calendar size={18} className="calendar-icon" />
+              <h3 className="font-mono">{getWeekDatesHeaderString()}</h3>
             </div>
-          )}
-        </div>
+            <div className="week-nav-actions">
+              <button className="btn btn-secondary nav-btn" onClick={() => setWeekOffset(prev => prev - 1)}>
+                <ChevronLeft size={16} />
+              </button>
+              <button 
+                className={`btn btn-secondary today-btn ${weekOffset === 0 ? 'active' : ''}`} 
+                onClick={() => setWeekOffset(0)}
+              >
+                Today
+              </button>
+              <button className="btn btn-secondary nav-btn" onClick={() => setWeekOffset(prev => prev + 1)}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'weekly' ? (
+          <>
+            {/* Grid Header containing weekdays alignment */}
+            <div className="dashboard-grid-header">
+              <div className="habit-header-col">Habits</div>
+              <div className="days-header-grid">
+                {weekDates.map((date) => {
+                  const dateStr = formatDateStr(date);
+                  const isToday = formatDateStr(new Date()) === dateStr;
+                  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                  return (
+                    <div key={dateStr} className={`day-header-cell ${isToday ? 'today-highlight' : ''}`}>
+                      <span className="day-name">{weekdays[date.getDay()]}</span>
+                      <span className="day-number font-mono">{date.getDate()}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Habits Cards Row Grid list */}
+            <div className="habits-list-container">
+              {filteredHabits.length > 0 ? (
+                filteredHabits.map((habit) => (
+                  <HabitCard
+                    key={habit.id}
+                    habit={habit}
+                    weekDates={weekDates}
+                    completions={completions}
+                    onToggleCompletion={handleToggleCompletion}
+                    onIncrementCompletion={handleIncrementCompletion}
+                    onDecrementCompletion={handleDecrementCompletion}
+                    onOpenDetails={setActiveDetailsHabit}
+                  />
+                ))
+              ) : (
+                <div className="empty-state">
+                  <CheckSquare size={48} className="empty-icon" />
+                  <h3>No habits found</h3>
+                  <p>Create a habit or adjust your search filters to get started.</p>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Heatmap Overview List View Mode */
+          <div className="heatmap-overview-container">
+            {filteredHabits.length > 0 ? (
+              filteredHabits.map((habit) => {
+                const streak = getHabitStreak(habit);
+                const totalChecks = getHabitTotalChecks(habit);
+                const heatmapWeeks = generateHeatmapDataForOverview(habit);
+
+                return (
+                  <div key={habit.id} className="overview-heatmap-card" onClick={() => setActiveDetailsHabit(habit)}>
+                    <div className="overview-card-header">
+                      <div className="overview-header-left">
+                        <span className="habit-color-indicator" style={{ backgroundColor: habit.color }} />
+                        <h4 className="habit-name">{habit.name}</h4>
+                        <span className={`badge badge-${habit.category.toLowerCase()}`}>
+                          {habit.category}
+                        </span>
+                      </div>
+                      <div className="overview-header-right font-mono">
+                        {streak > 0 && (
+                          <span className="habit-streak pulse-flame" style={{ color: habit.color }}>
+                            <Flame size={12} fill={habit.color} />
+                            {streak}d streak
+                          </span>
+                        )}
+                        <span className="total-checks-badge">
+                          {totalChecks} check{totalChecks !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="overview-card-body">
+                      <div className="heatmap-container">
+                        <div className="heatmap-week-labels">
+                          <span>Sun</span>
+                          <span>Tue</span>
+                          <span>Thu</span>
+                          <span>Sat</span>
+                        </div>
+                        <div className="heatmap-grid-scroll">
+                          <div className="heatmap-grid">
+                            {heatmapWeeks.map((week, wIdx) => (
+                              <div key={wIdx} className="heatmap-column">
+                                {week.map((day) => (
+                                  <div
+                                    key={day.dateStr}
+                                    className={`heatmap-cell ${day.isFuture ? 'cell-future' : ''}`}
+                                    style={{
+                                      backgroundColor: day.isFuture ? 'transparent' : getCellColorForOverview(habit.color, day.intensity),
+                                      borderColor: day.isFuture ? 'rgba(39, 39, 42, 0.3)' : 'transparent',
+                                    }}
+                                    title={day.label}
+                                  />
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="empty-state">
+                <CheckSquare size={48} className="empty-icon" />
+                <h3>No habits found</h3>
+                <p>Create a habit or adjust your search filters to get started.</p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Details Heatmap/Calendar Modal */}
@@ -901,6 +1072,86 @@ export default function App() {
           text-overflow: ellipsis;
           overflow: hidden;
           max-width: 100%;
+        }
+
+        /* View Mode tabs styling */
+        .tab-control {
+          display: flex;
+          background-color: var(--input-bg);
+          border: 1px solid var(--input-border);
+          border-radius: var(--border-radius);
+          padding: 3px;
+        }
+        .tab-btn {
+          flex: 1;
+          background: transparent;
+          border: none;
+          padding: 8px;
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--text-secondary);
+          cursor: pointer;
+          border-radius: 6px;
+          transition: all var(--transition-fast);
+        }
+        .tab-btn:hover {
+          color: var(--text-primary);
+        }
+        .tab-btn.active {
+          background-color: var(--card-border);
+          color: var(--text-primary);
+          box-shadow: var(--shadow-sm);
+        }
+
+        /* Heatmap Overview Cards List Styling */
+        .heatmap-overview-container {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .overview-heatmap-card {
+          background-color: var(--card-bg);
+          border: 1px solid var(--card-border);
+          border-radius: var(--border-radius);
+          padding: 20px;
+          cursor: pointer;
+          transition: border-color var(--transition-fast), transform var(--transition-fast);
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .overview-heatmap-card:hover {
+          border-color: rgba(216, 195, 165, 0.3);
+          transform: translateY(-1px);
+        }
+        .overview-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .overview-header-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .overview-header-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          font-size: 0.8rem;
+          color: var(--text-secondary);
+        }
+        .total-checks-badge {
+          background-color: rgba(39, 39, 42, 0.4);
+          border: 1px solid var(--card-border);
+          border-radius: 4px;
+          padding: 2px 8px;
+        }
+        .overview-card-body {
+          display: flex;
+          flex-direction: column;
         }
 
         /* Sidebar styles */
