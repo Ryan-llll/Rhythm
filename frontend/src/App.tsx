@@ -805,7 +805,7 @@ export default function App() {
   if (loadingSession) {
     return (
       <div className="app-loading-screen">
-        <Sparkles size={36} className="logo-sparkle spinner" />
+        <Sparkles size={36} color="#d8c3a5" className="logo-sparkle spinner" />
         <span className="font-mono" style={{ marginTop: '16px', color: 'var(--text-secondary)' }}>
           Loading Rhythm...
         </span>
@@ -853,7 +853,7 @@ export default function App() {
         <div className="sidebar-header">
           <div className="logo-section-row">
             <div className="logo-section">
-              <Sparkles size={20} className="logo-sparkle" />
+              <Sparkles size={20} color="#d8c3a5" className="logo-sparkle" />
               <h2 className="logo-title font-mono">Rhythm</h2>
             </div>
             <button 
@@ -1314,7 +1314,7 @@ export default function App() {
           gap: 8px;
         }
         .logo-sparkle {
-          color: var(--accent-color);
+          color: #d8c3a5;
         }
         .logo-title {
           font-size: 1.4rem;

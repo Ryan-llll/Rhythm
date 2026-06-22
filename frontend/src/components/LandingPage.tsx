@@ -92,7 +92,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Top Navbar */}
       <header className="landing-navbar fade-in">
         <div className="landing-logo font-mono">
-          <Sparkles size={24} className="logo-sparkle animate-pulse" />
+          <Sparkles size={24} color="#d8c3a5" className="logo-sparkle animate-pulse" />
           <span>Rhythm</span>
         </div>
         <button
@@ -274,7 +274,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           color: var(--text-primary);
         }
         .logo-sparkle {
-          color: var(--accent-color);
+          color: #d8c3a5;
         }
         .navbar-theme-btn {
           background: transparent;

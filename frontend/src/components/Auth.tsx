@@ -52,7 +52,7 @@ export const Auth: React.FC<AuthProps> = ({ onContinueOffline }) => {
       <div className="auth-card">
         <div className="auth-header">
           <div className="auth-logo font-mono">
-            <Sparkles size={24} className="logo-sparkle" />
+            <Sparkles size={24} color="#d8c3a5" className="logo-sparkle" />
             <span>Rhythm</span>
           </div>
           <span className="auth-subtitle">Developer Habit Tracker</span>
